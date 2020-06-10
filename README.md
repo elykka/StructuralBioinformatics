@@ -1,8 +1,4 @@
-# StructuralBioinformatics
-
-Project no. I - Identification of structure clusters in
-Molecular Dynamics trajectories from Residue Interaction
-Networks
+# Project no. I - Identification of structure clusters in Molecular Dynamics trajectories from Residue Interaction Networks
 
 Residue Interaction Networks are derived from proteins structures estimating contacts from distance
 measures. RING is a command line tool implemented in C++ which takes in input a PDB file and returns
