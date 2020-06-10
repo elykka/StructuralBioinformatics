@@ -3,14 +3,8 @@
 Residue Interaction Networks are derived from proteins structures estimating contacts from distance
 measures. RING is a command line tool implemented in C++ which takes in input a PDB file and returns
 the list of contacts in a protein complex. RING is able to classify different types of contacts based on
-geometrical and physico-chemical properties of the amino acids. Types of contacts are:
-● Hydrogen bonds (HBOND)
-● Van der Waals interactions (VDW)
-● Disulfide bridges (SBOND)
-● Salt bridges (IONIC)
-● π-π stacking (PIPISTACK)
-● π-cation (PICATION)
-● Inter-Atomic Contact (IAC), generic contact simply based on distance
+geometrical and physico-chemical properties of the amino acids. Types of contacts are Hydrogen bonds (HBOND),Van der Waals interactions (VDW),Disulfide bridges (SBOND), Salt bridges (IONIC), π-π stacking (PIPISTACK), π-cation (PICATION), Inter-Atomic Contact (IAC), generic contact simply based on distance.
+
 RING generates two files. An “edge” file containing the contacts and a “node” file containing the list of
 residues which are in contacts and their attributes. A node is identified by a string like this
 “A:159:_:PRO”, in which the chain, residue index, insertion code and residue name are column (“:”)
