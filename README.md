@@ -20,7 +20,9 @@ residues which are in contacts and their attributes. A node is identified by a s
 “A:159:_:PRO”, in which the chain, residue index, insertion code and residue name are column (“:”)
 separated. An insertion code equal to “_” indicates there is no insertion code for that residue.
 Project goals
-The output of a Molecular Dynamics (MD) simulation is a trajectory file which describes the change of
+
+
+The *output of a Molecular Dynamics* (MD) simulation is a trajectory file which describes the change of
 atomic coordinates from an initial state to a final state (after a certain amount of time) when a forcefield is
 applied. The full trajectory can be described by a subset of intermediate conformations / atomic
 coordinates / snapshots. Each team of students is requested to develop a software that identifies
