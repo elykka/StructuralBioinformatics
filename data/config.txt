@@ -1,0 +1,54 @@
+# CONFIGURATION FILE for contact maps clustering algorithm
+# !!! IMPORTANT !!! Do not change variables order, correct order is:
+# contact_treshold, energy_treshold, method, optimal_ordering, truncation, truncate_mode,
+# color_threshold, orientation, distance_sort, show_leaf_counts, rangeK, toll, max_iter
+
+# CONTACT MAPS FILTERING
+# residues in contact with a distance above the threshold are not considered
+contact_treshold = 5
+
+# residues with an energy bond below the threshold are not considered
+energy_treshold = 7
+
+# DENDROGRAM CONFIGURATIONS
+# type of linkage, acceptable values: single, complete, average, weighted, centroid, median, ward
+method = single
+
+# if True, the linkage matrix will be reordered so that the distance between successive leaves
+# is minimal (might become computationally expensive), acceptable values: True, False
+optimal_ordering = False
+
+# value for truncate mode, acceptable values: Integer
+truncation = 50
+# condenses the dendrogram if it's difficult to read, acceptable values: 'none', 'lastp', 'level',
+# meaning: no truncation; the last p non-singleton clusters formed in the linkage are the only
+# non-leaf nodes in the linkage; no more than 'truncation' levels of the dendrogram are displayed.
+# A “level” includes all nodes with 'truncation' merges from the last merge.
+truncate_mode = none
+
+# colors all the descendent links below a cluster node the same color if is the first node below
+# the cut threshold, acceptable values: float (with .)
+color_threshold = 3.0
+
+# the direction to plot the dendrogram, acceptable values: top, bottom, left, right
+orientation = top
+
+# for each node n, the order (visually, from left-to-right) n’s two descendent links are plotted
+# is determined by this parameter, acceptable values: False, ascending or True, descending
+distance_sort = descending
+
+# when True, leaf nodes representing original observation are labeled with the number of observations
+# they contain in parentheses, acceptable values: True or False
+show_leaf_counts = True
+
+
+# OPTIMAL CLUSTERING CONFIGURATIONS
+# acceptable values: a range 'x to y' in which to search for the optimal value or a single value 5
+# corresponding to the number of clusters we want to have for the clustering
+rangeK = 3
+
+# tollerance between the distance from an old center and a new one, acceptable values: float (with .)
+toll = 0.001
+
+# maximum number of iterations, acceptable values: Integer
+max_iter = 300
