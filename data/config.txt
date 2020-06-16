@@ -5,10 +5,10 @@
 
 # CONTACT MAPS FILTERING
 # residues in contact with a distance above the threshold are not considered
-contact_treshold = 5
+ contact_treshold = 5
 
 # residues with an energy bond below the threshold are not considered
-energy_treshold = 7
+ energy_treshold = 7
 
 # DENDROGRAM CONFIGURATIONS
 # type of linkage, acceptable values: single, complete, average, weighted, centroid, median, ward
@@ -43,12 +43,12 @@ show_leaf_counts = True
 
 
 # OPTIMAL CLUSTERING CONFIGURATIONS
-# acceptable values: a range 'x to y' in which to search for the optimal value or a single value 5
+# acceptable values: a range 'x to y' in which to search for the optimal value or a single value
 # corresponding to the number of clusters we want to have for the clustering
-rangeK = 3
+rangeK = 1 to 5
 
 # tollerance between the distance from an old center and a new one, acceptable values: float (with .)
-toll = 0.001
+toll = 0.05
 
 # maximum number of iterations, acceptable values: Integer
 max_iter = 300

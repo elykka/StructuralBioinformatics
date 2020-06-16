@@ -1,6 +1,5 @@
 ############################# IMPORTS ####################################################################
 import re
-
 import numpy as np
 import pandas as pd
 import argparse
@@ -15,6 +14,8 @@ import shutil
 import math
 import random
 import time
+import concurrent.futures
+from itertools import repeat
 from buildcontactmaps import list_contacts_per_snapshot, list_residues, list_matrix
 from builddistancematrix import distanceJaccard
 
@@ -23,72 +24,92 @@ from builddistancematrix import distanceJaccard
 
 
 class k_means:
-    def __init__(self, metric, average_func, toll, max_iter):
+    start = time.time()
+    def __init__(self, indexes, metric, toll, max_iter, number_residues, matrices):
         self.toll = toll
         self.max_iter = max_iter
         self.metric = metric
-        self.average_func = average_func
+        self.indexes = indexes
+        self.number_residues = number_residues
+        self.matrices = matrices
 
-    def clusterize(self, data, k, distance_matrix, array_elements):
+        # list of indexes, have to return an contact map
 
-        self.k = k
+    def average(self, cluster, center):
+        if len(cluster) != 0:
+            map = np.zeros((self.number_residues, self.number_residues))
+            for el in cluster:
+                map = np.add(map, self.matrices[el])
+            return np.rint(map / len(cluster))
+        else:
+            return center
 
-        self.centers = {}
-        for i in range(self.k):
-            self.centers[i] = array_elements[data[i]]
+    def min_index(self, index, centers):
+        distances = []
+        for center in centers:
+            distances.append(self.metric(self.matrices[index], centers.get(center)))
+        return distances.index(min(distances)), index
+
+    def clusterize(self, k):
+
+        centers = {}
+        for i in range(k):
+            centers[i] = random.choice(self.matrices)
 
         for i in range(self.max_iter):
-            self.clusters = {}
+            clusters = {}
 
-            for i in range(self.k):
-                self.clusters[i] = []
-
+            for i in range(k):
+                clusters[i] = []
             # Find the distance of each point in the data set with the k centers
-            for element in data:
-                distances = []
-                for center in self.centers:
-                    # Compute the distances from the element to the center
-                    distances.append(self.metric(element, self.centers.get(center), distance_matrix, array_elements))
-                    # Assign the element to the closest center, index returns the center
-                cluster_center = distances.index(min(distances))
-                self.clusters[cluster_center].append(element)
 
-            all_centers = dict(self.centers)
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                results = executor.map(self.min_index, self.indexes, repeat(centers), chunksize=10)
+
+                for res in results:
+                    clusters[res[0]].append(res[1])
+
+            all_centers = dict(centers)
 
             # Find the new centers by taking the average of the points in each cluster group.
-            for cluster in self.clusters:
-                self.centers[cluster] = self.average_func(self.clusters[cluster], array_elements)
+            for cluster in clusters:
+                centers[cluster] = self.average(clusters[cluster], centers[cluster])
 
             stop = True
 
-            for center in self.centers:
+            for center in centers:
                 original_center = all_centers[center]
-                current_center = self.centers[center]
-                # if the centers difference is higher than the tollerance treshold we continue the execution
-                if np.sum(current_center - original_center) > self.toll:
+                current_center = centers[center]
+                # if the centers difference is higher than the tollerance threshold we continue the execution
+                if self.metric(current_center, original_center) > self.toll:
                     stop = False
-
             if stop:
-                break
+                return clusters, centers
 
-    def optimal(self, k_range, user_function, average, indexes, distance_matrix, data, toll, max_iter):
+    def optimal(self, k_range, metric, distance_matrix, data, toll, max_iter, number_residues, matrices):
         elbow_values = []
         optimal_clusters = []
         optimal_centers = []
-        KMeans = k_means(user_function, average, toll, max_iter)
-        for k in k_range:
-            KMeans.clusterize(indexes, k, distance_matrix, data)
-            clust = KMeans.clusters
+        KMeans = k_means(data, metric, toll, max_iter, number_residues, matrices)
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = executor.map(KMeans.clusterize, k_range)
+            for res in results:
+                optimal_clusters.append(res[0])
+                optimal_centers.append(res[1])
+
+        for clust in optimal_clusters:
             sum = 0.0
             for index in clust:
                 value = 0.0
-                for i in range(len(clust[index]) - 1):
-                    for j in range(i + 1, len(clust[index])):
-                        value += user_function(clust[index][i], clust[index][j], distance_matrix, data)
-                sum += value / len(clust[index])
+                if len(clust[index]) != 0:
+                    for i in range(len(clust[index]) - 1):
+                        for j in range(i + 1, len(clust[index])):
+                            if j < i:
+                                value += distance_matrix[j][i]
+                            else:
+                                value += distance_matrix[j][i]
+                    sum += value / len(clust[index])
             elbow_values.append(sum)
-            optimal_clusters.append(KMeans.clusters)
-            optimal_centers.append(KMeans.centers)
         return elbow_values, optimal_clusters, optimal_centers
 
 
@@ -96,9 +117,7 @@ class k_means:
 
 
 def main():
-
-
-############################# HELPER FUNCTIONS  ###########################################################
+    ############################# HELPER FUNCTIONS  ###########################################################
 
     def parseConfigFile(path):
         List = []
@@ -109,14 +128,13 @@ def main():
                     List.append((x, y))
         return np.array(List)[:, 1]
 
-
     # given an array of points or a distance matrix and the labels associated to the elements,
     # this funtion creates a dendrogram.
     # we can also specify:
     # the type of link
     def make_dendrogram(array, labels, output_path, method, optimal_ordering, orientation, distance_sort,
-                        show_leaf_counts, truncation, truncate_mode, color_threshold):
-        plt.figure(figsize=(50, 30))
+                        show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name):
+        plt.figure(figsize=(50, 20))
         shc.dendrogram(shc.linkage(array, method=method, optimal_ordering=optimal_ordering),
                        orientation=orientation,
                        labels=labels,
@@ -126,7 +144,7 @@ def main():
                        truncate_mode=truncate_mode,
                        color_threshold=color_threshold
                        )
-        plt.savefig(os.path.join(output_path, 'dendrogram.png'))
+        plt.savefig(os.path.join(output_path, protein_name + '_dendrogram.png'))
 
     def distancePointLine(x1, y1, a, b, c):
         return abs((a * x1 + b * y1 + c)) / math.sqrt(a * a + b * b)
@@ -143,10 +161,9 @@ def main():
             distances.append(distancePointLine(k_values[k], elbow_values[k], a, b, c))
         return distances.index(max(distances))
 
+    ############################# ARGUMENT PARSER ############################################################
 
-############################# ARGUMENT PARSER ############################################################
-
-
+    inizio= time.time()
     parser = argparse.ArgumentParser(description='Arguments for clustering contact maps.')
     parser.add_argument('input_path', metavar='contact_maps_file', type=str,
                         help='the directory which contains the paths to RING contact map files (edge files), one '
@@ -187,9 +204,10 @@ def main():
         logging.error('configuration file not found, please check path', 'config_file', args.config_file)
         sys.exit(1)
 
+    ############################# CONFIG FILE PARSING #########################################################
 
-############################# CONFIG FILE PARSING #########################################################
-
+    # saving protein name (name on folder before edges folder)
+    protein_name = args.input_path.split('/')[-2]
 
     # reading all the variables
     contact_treshold, energy_treshold, method, optimal_ordering, truncation, truncate_mode, \
@@ -198,20 +216,19 @@ def main():
 
     # checking if they are correct
 
-
     try:
         contact_treshold = float(contact_treshold)
     except ValueError:
         logging.error("In config file contact_treshold value is not convertible to float, please check",
-                  ValueError.args, 'contact_treshold', contact_threshold)
+                      ValueError.args, 'contact_treshold', contact_threshold)
         sys.exit(1)
 
     try:
-       energy_treshold = float(energy_treshold)
+        energy_treshold = float(energy_treshold)
     except ValueError:
-       logging.error("In config file energy_treshold value is not convertible to float, please check",
-                  ValueError.args, 'energy_treshold', energy_treshold)
-       sys.exit(1)
+        logging.error("In config file energy_treshold value is not convertible to float, please check",
+                      ValueError.args, 'energy_treshold', energy_treshold)
+        sys.exit(1)
 
     if method not in ['single', 'complete', 'average', 'weighted', 'centroid', 'median', 'ward']:
         logging.error("In config file method value is not correct, please check", 'method', method)
@@ -266,7 +283,7 @@ def main():
         x, y = rangeK.split('to')
         try:
             x = int(x)
-            y = int(y)
+            y = int(y) + 1
             if x != 0 and x < y:
                 rangeK = range(x, y)
             else:
@@ -305,8 +322,7 @@ def main():
                       ValueError.args, 'max_iter', max_iter)
         sys.exit(1)
 
-
-############################# READ INPUT ###############################################################
+    ############################# READ INPUT ###############################################################
 
     print('reading contact maps...')
     # all files names contained in input_path are added in a list
@@ -330,18 +346,15 @@ def main():
 
     # construisco i dataframe e li salvo in una cartella
     for i in range(0, number_files):
-        ((pd.DataFrame(listMatrix[i], columns=listRes, index=listRes)).fillna(0))\
-            .to_csv((os.path.join(args.temporary_path, list_names[i]+'.csv')), index=listRes, header=True)
+        ((pd.DataFrame(listMatrix[i], columns=listRes, index=listRes)).fillna(0)) \
+            .to_csv((os.path.join(args.temporary_path, list_names[i] + '.csv')), index=listRes, header=True)
 
-
-
-
-############################# DISTANCE MATRIX ################################################
+    ############################# DISTANCE MATRIX ################################################
 
     print('making distance matrix...')
     # ordered crescently by snapshot
     list_names.sort(key=lambda f: int(re.sub('\D', '', f)))
-    listPaths = [os.path.join(args.temporary_path, list_names[i]+'.csv') for i in range(number_files)]
+    listPaths = [os.path.join(args.temporary_path, list_names[i] + '.csv') for i in range(number_files)]
 
     # matrices are also ordered by snapshot
     matrices = []
@@ -356,97 +369,69 @@ def main():
     # for i in range(1, number_files):
     #     for j in range(0, i):
     #         distance_matrix[i, j] = distanceJaccard(matrices[i], matrices[j])
-    #
     # # create DataFrame
     # distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
     # # export DataFrame into file csv
-    # distance_df.to_csv(os.path.join(args.output_path, 'distance_matrix.csv'))
+    # distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
 
-    distance_matrix = pd.read_csv(os.path.join(args.output_path, 'distance_matrix.csv'), index_col=0)
+    distance_matrix = pd.read_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'), index_col=0)
     distance_matrix = np.array(distance_matrix)
     distance_matrix = np.tril(distance_matrix)
 
-
-
-############################# DENDROGRAM ##################################################################
+    ############################# DENDROGRAM ##################################################################
 
     # Nota: quando viene passata la matrice e non un vettore, la metrica viene ignorata, non serve farne una custom
     # show message to user
-    print('making dendrogram...')
-    make_dendrogram(distance_matrix, list_names, args.output_path, method, optimal_ordering, orientation,
-                    distance_sort,
-                    show_leaf_counts, truncation, truncate_mode, color_threshold)
+    # print('making dendrogram...')
+    # make_dendrogram(distance_matrix, list_names, args.output_path, method, optimal_ordering, orientation,
+    #                 distance_sort,
+    #                 show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name)
 
+    ############################# CLUSTERING ############################################################
 
-############################# CLUSTERING ############################################################
-
-    start = time.time()
     # message to user
     print('clustering...')
 
-    # custom metric for calculations between indexes and centers
-    # we chose to use indexes and not the matrices directly to sped up the calculations during the
-    # elbow method by accessing the distance matrix
-    def user_function(point1, point2, distance_matrix, array_elements):
-
-        if type(point1) is int and type(point2) is int:
-            return distance_matrix[point1][point2]
-        if type(point1) is int:
-            return distanceJaccard(array_elements[point1], point2)
-        if type(point2) is int:
-            return distanceJaccard(point1, array_elements[point2])
-        return distanceJaccard(point1, point2)
-
-    # list of indexes, have to return an contact map
-    def average(cluster, array_elements):
-        map = np.zeros((number_residues, number_residues))
-        for el in cluster:
-            map = np.add(map, array_elements[el])
-        return np.rint(map / len(cluster))
-
-    clustering = k_means(user_function, average, toll, max_iter)
     indexes = [i for i in range(number_files)]
+
+    clustering = k_means(indexes, distanceJaccard, toll, max_iter, number_residues, matrices)
 
     opt_k = None
     if type(rangeK) is range:
-        elbow_values, opt_clusters, opt_centers = clustering.optimal(rangeK, user_function,
-                                                                     average, indexes, distance_matrix,
-                                                                     matrices, toll, max_iter)
+        elbow_values, opt_clusters, opt_centers = \
+            clustering.optimal(rangeK, distanceJaccard, distance_matrix,
+                               indexes, toll, max_iter, number_residues, matrices)
         opt_k = findOptimalValue(elbow_values, rangeK)
         final_clusters = opt_clusters[opt_k]
         final_centers = opt_centers[opt_k]
     else:
-        clustering.clusterize(indexes, rangeK, distance_matrix, matrices)
-        final_clusters = clustering.clusters
-        final_centers = clustering.centers
-    print(time.time() - start)
+        final_clusters, final_centers = clustering.clusterize(rangeK)
 
-############################# PROCESSING RESULTS ############################################################
+    ############################# PROCESSING RESULTS ############################################################
 
     print('working on outputs...')
 
     # extract samples from the clusters
     for index in final_clusters:
         sample = random.choice(final_clusters[index])
-        shutil.copy(listPaths[sample], os.path.join(args.output_path, 'Cluster_{}_'.format(index) +
-                                                    str(list_names[sample]) + '.csv'))
-        # file = open(os.path.join(args.output_path, 'Cluster_{}_'.format(index) + str(list_names[sample])), 'w+')
-        # file.write(str(matrices[sample]))
-        # file.close()
+        shutil.copy(listPaths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
+                                                    .format(index) + 'extract.csv'))
+
 
     # output file with clustering results
-    file = open(os.path.join(args.output_path, 'cluster_results.txt'), 'w+')
+    file = open(os.path.join(args.output_path, protein_name + '_cluster_results.txt'), 'w+')
     file.write('CLUSTERING RESULTS ')
-    file.write('for K {}\n'.format(rangeK))
+    file.write('for K range({} to {})\n'.format(rangeK[0], rangeK[len(rangeK) - 1]))
     if type(rangeK) is range:
         file.write('The optimal number of clusters found was {}:\n'.format(opt_k + rangeK[0]))
     for index in final_clusters:
         file.write('CLUSTER {}:\n'.format(index))
         for cluster in final_clusters[index]:
             file.write('Element: ' + str(list_names[cluster]) + ', distance from center: ' +
-                       str(user_function(cluster, final_centers[index], distance_matrix, matrices)) + '\n')
-
+                        str(distanceJaccard(matrices[cluster], final_centers[index])) + '\n')
     file.close()
+
+    print('tempo totale = '+ str(time.time()-inizio))
     sys.exit(0)
 
 
