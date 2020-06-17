@@ -45,10 +45,10 @@ show_leaf_counts = True
 # OPTIMAL CLUSTERING CONFIGURATIONS
 # acceptable values: a range 'x to y' in which to search for the optimal value or a single value
 # corresponding to the number of clusters we want to have for the clustering
-rangeK = 1 to 5
+rangeK = 1 to 20
 
 # tollerance between the distance from an old center and a new one, acceptable values: float (with .)
-toll = 0.05
+toll = 20
 
 # maximum number of iterations, acceptable values: Integer
 max_iter = 300
