@@ -111,7 +111,7 @@ def main():
                        color_threshold=color_threshold,
                        leaf_font_size=font_size
                        )
-        plt.savefig(os.path.join(output_path, 'MANH-LOG_dendrogram.png'))
+        plt.savefig(os.path.join(output_path, protein_name + '_dendrogram.png'))
 
     # given two indexes we get the corresponding csv file, we compare them and save in a list where
     # they differ
@@ -356,9 +356,9 @@ def main():
     # # export DataFrame into file csv
     # distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
 
-    # TODO:remove
+    # # TODO:remove
     # READ MATRIX FROM FILE
-    distance_matrix = pd.read_csv(os.path.join(args.output_path, 'dist_mat_MANH-LOG.csv'), index_col=0)
+    distance_matrix = pd.read_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'), index_col=0)
     distance_matrix = np.array(distance_matrix)
 
     # making similarity matrix from distance matrix. The similarity matrix is also called affinity matrix
@@ -395,11 +395,11 @@ def main():
 
     print('working on outputs...')
 
-    # extract samples from the clusters
-    for index in final_clusters:
-        sample = final_centers[index]
-        shutil.copy(listPaths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
-                                                    .format(index) + 'extract.csv'))
+    # # extract samples from the clusters
+    # for index in final_clusters:
+    #     sample = final_centers[index]
+    #     shutil.copy(listPaths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
+    #                                                 .format(index) + 'extract.csv'))
 
     # output file with clustering results
     file = open(os.path.join(args.output_path, protein_name + '_cluster_results.txt'), 'w+')
@@ -426,6 +426,8 @@ def main():
         for elements in differences[index]:
             file.write(str(elements) + '\n')
     file.close()
+
+
 
     # TODO: remove tempo
     print('tempo totale = ' + str(time.time() - inizio))
