@@ -11,11 +11,9 @@ from os.path import isfile, join
 from matplotlib import pyplot as plt
 import scipy.cluster.hierarchy as shc
 import shutil
-import math
-import random
 import time
+from scipy.spatial.distance import squareform
 import concurrent.futures
-# import tmscoring
 from sklearn.cluster import AffinityPropagation
 from buildcontactmaps import list_contacts_per_snapshot, list_residues, list_matrix
 from scipy.spatial import distance
@@ -27,9 +25,12 @@ from scipy.spatial import distance
 class affinity_propagation:
     start = time.time()
 
-    def __init__(self, indexes, max_iter, number_residues, matrices, similarity_matrix):
-        self.max_iter = max_iter
+    def __init__(self, indexes, damping, max_iter, toll, random_state, number_residues, matrices, similarity_matrix):
         self.indexes = indexes
+        self.damping = damping
+        self.max_iter = max_iter
+        self.toll = toll
+        self.random_state = random_state
         self.number_residues = number_residues
         self.matrices = matrices
         self.similarity_matrix = similarity_matrix
@@ -48,9 +49,11 @@ class affinity_propagation:
         return clusters
 
     def clusterize(self):
-        pref = np.min(self.similarity_matrix)
-        ap = AffinityPropagation(damping=0.5, affinity='precomputed', max_iter=self.max_iter,
-                                 random_state=0)
+        #TODO: remove if useless
+        #pref = np.min(self.similarity_matrix)
+
+        ap = AffinityPropagation(damping=self.damping, affinity='precomputed', max_iter=self.max_iter,
+                                 random_state=self.random_state, convergence_iter=self.toll)
         # running clustering algorithm and getting a list indicating which cluster the element
         # in that position belongs to
         labels = ap.fit_predict(self.similarity_matrix)
@@ -69,29 +72,34 @@ class affinity_propagation:
 def main():
     ############################# HELPER FUNCTIONS  ###########################################################
 
-    # function for parsing the values in the config file
+    # function for parsing the values in the config file, path is the path to the config file
     def parseConfigFile(path):
         List = []
+        # open file
         with open(path) as f:
+            # for every line
             for line in f:
+                # ignore comments or empty lines
                 if not line.startswith(('#', '\n')):
+                    # eliminate spaces, new lines and split values from names
                     x, y = line.replace(' ', '').replace('\n', '').split('=')
                     List.append((x, y))
+        # return all values
         return np.array(List)[:, 1]
 
-    # given an array of points or a distance matrix and the labels associated to the elements,
-    # this funtion creates a dendrogram.
-    # we can also specify:
-    # the type of link
-    # the orientation for the dendrogram
-    # the truncation and truncation mode
-    # color threshold
-    # labels font size
-    # optimal sorting for leaves
-    # which child to plot first in the dendrogram
-    # if the dendrogram is truncated we can see how many elements are not shown
+    # Given an array of points or a distance matrix and the labels associated to the elements,
+    # this function creates a dendrogram.
+    # We can also specify:
+    # - the type of link
+    # - the orientation for the dendrogram
+    # - the truncation and truncation mode
+    # - color threshold
+    # - labels font size
+    # - optimal sorting for leaves
+    # - which child to plot first in the dendrogram
+    # - if the dendrogram is truncated we can see how many elements are not shown
     def make_dendrogram(array, labels, output_path, method, optimal_ordering, orientation, distance_sort,
-                        show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name):
+                        show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name, font_size):
         plt.figure(figsize=(20, 10))
         shc.dendrogram(shc.linkage(array, method=method, optimal_ordering=optimal_ordering),
                        orientation=orientation,
@@ -101,9 +109,37 @@ def main():
                        p=truncation,
                        truncate_mode=truncate_mode,
                        color_threshold=color_threshold,
-                       leaf_font_size=8
+                       leaf_font_size=font_size
                        )
-        plt.savefig(os.path.join(output_path, protein_name + '_dendrogram.png'))
+        plt.savefig(os.path.join(output_path, 'MANH-LOG_dendrogram.png'))
+
+    # given two indexes we get the corresponding csv file, we compare them and save in a list where
+    # they differ
+    def get_differences(indx_1, indx_2, list_paths, number_residues):
+        snap_1 = pd.read_csv(os.path.join(list_paths[indx_1]))
+        snap_1 = np.array(snap_1)
+        snap_2 = pd.read_csv(os.path.join(list_paths[indx_2]))
+        snap_2 = np.array(snap_2)
+        residues = snap_1[:, [0]]
+        snap_1 = np.delete(snap_1, 0, 1)
+        snap_2 = np.delete(snap_2, 0, 1)
+        list = []
+        for i in range(0, number_residues-1):
+            for j in range(i, number_residues):
+                if snap_1[i, j] != snap_2[i, j]:
+                    list.append((residues[i][0], residues[j][0]))
+        return list
+
+    # given the indexes of the clusters centers, we confront them to see in which residues
+    # they differ
+    def confront_clusters(centers, list_paths, number_residues):
+        elements = len(centers)
+        differences = {}
+        for el_1 in range(0, elements - 1):
+            for el_2 in range(1, elements):
+                if el_1 != el_2:
+                    differences[(el_1, el_2)] = get_differences(el_1, el_2, list_paths, number_residues)
+        return differences
 
     ############################# ARGUMENT PARSER ############################################################
 
@@ -138,6 +174,7 @@ def main():
         logging.error('temporary_path not a directory path, please check path', 'temporary_path', args.temporary_path)
         sys.exit(1)
 
+    # TODO: substitute path with file containing residues paths
     # if temporary directory doesn't already exist we show an error
     if not os.path.exists(args.input_path):
         logging.error('input_path directory does not exists, please check path', 'input_path', args.input_path)
@@ -154,12 +191,16 @@ def main():
     protein_name = args.input_path.split('/')[-2]
 
     # reading all the variables
-    contact_treshold, energy_treshold, method, optimal_ordering, truncation, truncate_mode, \
-    color_threshold, orientation, distance_sort, show_leaf_counts, \
-    rangeK, toll, max_iter = parseConfigFile(args.config_file)
+    try:
+        contact_treshold, energy_treshold, method, optimal_ordering, truncation, truncate_mode, \
+        color_threshold, orientation, distance_sort, show_leaf_counts, \
+        font_size, damping, random_state, toll, max_iter = parseConfigFile(args.config_file)
+    except ValueError:
+        logging.error("Couldn't parse configuration file, please check",
+                      ValueError.args, 'config_file', args.config_file)
+        sys.exit(1)
 
-    # checking if they are correct
-
+    # checking if values are correct, otherwise show user an error
     try:
         contact_treshold = float(contact_treshold)
     except ValueError:
@@ -223,39 +264,31 @@ def main():
                       ValueError.args, 'show-leaf-counts', show_leaf_counts)
         sys.exit(1)
 
-    if 'to' in rangeK:
-        x, y = rangeK.split('to')
-        try:
-            x = int(x)
-            y = int(y) + 1
-            if x != 0 and x < y:
-                rangeK = range(x, y)
-            else:
-                logging.error(
-                    "In config file rangeK value is not correct, x cannot be 0 and x must be inferior to y value, please check",
-                    '(x,y)', (x, y - 1))
-                sys.exit(1)
-
-        except ValueError:
-            logging.error("In config file rangeK value is not convertible to a range please check",
-                          ValueError.args, '(x,y)', (x, y))
-            sys.exit(1)
-    else:
-        try:
-            rangeK = int(rangeK)
-            if rangeK == 0:
-                logging.error("In config file rangeK value is not correct, x cannot be 0, please check",
-                              'rangeK', rangeK)
-                sys.exit(1)
-        except ValueError:
-            logging.error("In config file rangeK value is not convertible to int please check",
-                          ValueError.args, 'rangeK', rangeK)
-            sys.exit(1)
+    try:
+        font_size = int(font_size)
+    except ValueError:
+        logging.error("In config file font_size value is not convertible to int, please check",
+                      ValueError.args, 'font_size', font_size)
+        sys.exit(1)
 
     try:
-        toll = float(toll)
+        damping = float(damping)
     except ValueError:
-        logging.error("In config file toll value is not convertible to float, please check",
+        logging.error("In config file damping value is not convertible to float, please check",
+                      ValueError.args, 'damping', damping)
+        sys.exit(1)
+
+    try:
+        random_state = int(random_state)
+    except ValueError:
+        logging.error("In config file random_state value is not convertible to int, please check",
+                      ValueError.args, 'random_state', random_state)
+        sys.exit(1)
+
+    try:
+        toll = int(toll)
+    except ValueError:
+        logging.error("In config file toll value is not convertible to int, please check",
                       ValueError.args, 'toll', toll)
         sys.exit(1)
 
@@ -309,25 +342,26 @@ def main():
     # NXN matrix with all zeros
     distance_matrix = np.zeros((number_files, number_files), dtype=float)
 
-    # insert Jaccard distance into each element of the matrix dist, we need a symmetric matrix
-    for i in range(1, len(listPaths)):
-        f_i = matrices[i].flatten()
-        for j in range(0, i):
-            f_j = matrices[j].flatten()
-            distance_matrix[i, j] = distance.jaccard(f_i, f_j)
-            distance_matrix[j, i] = distance_matrix[i, j]
+    # # insert Jaccard distance into each element of the matrix dist, we need a symmetric matrix
+    # for i in range(1, len(listPaths)):
+    #     f_i = matrices[i].flatten()
+    #     for j in range(0, i):
+    #         f_j = matrices[j].flatten()
+    #         distance_matrix[i, j] = distance.jaccard(f_i, f_j)
+    #         distance_matrix[j, i] = distance_matrix[i, j]
+    #
+    #
+    # # create DataFrame for distance_matrix
+    # distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
+    # # export DataFrame into file csv
+    # distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
 
+    # TODO:remove
+    # READ MATRIX FROM FILE
+    distance_matrix = pd.read_csv(os.path.join(args.output_path, 'dist_mat_MANH-LOG.csv'), index_col=0)
+    distance_matrix = np.array(distance_matrix)
 
-    # create DataFrame for distance_matrix
-    distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
-    # export DataFrame into file csv
-    distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
-
-    # # READ MATRIX FROM FILE
-    # distance_matrix = pd.read_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'), index_col=0)
-    # distance_matrix = np.array(distance_matrix)
-
-    # making similarity matrix from distance matrix. The similarity matrix is also called afinity matrix
+    # making similarity matrix from distance matrix. The similarity matrix is also called affinity matrix
     affinity_matrix = 1 - distance_matrix
 
     # indexes of snapshots (0 -> snapshot 1, 1-> snapshot 2, ...)
@@ -339,10 +373,11 @@ def main():
 
     # show message to user
     print('making dendrogram...')
+
     # call function to create dendrogram
-    make_dendrogram(distance_matrix, labels, args.output_path, method, optimal_ordering, orientation,
+    make_dendrogram(squareform(distance_matrix), labels, args.output_path, method, optimal_ordering, orientation,
                     distance_sort,
-                    show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name)
+                    show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name, font_size)
 
     ############################# CLUSTERING ############################################################
 
@@ -350,7 +385,9 @@ def main():
     print('clustering...')
 
     # creating instance of clustering class
-    clustering = affinity_propagation(indexes, max_iter, number_residues, matrices, affinity_matrix)
+    clustering = affinity_propagation(indexes, damping, max_iter, toll, random_state, number_residues,
+                                      matrices, affinity_matrix)
+
     # running clustering algorithm and getting results
     final_clusters, final_centers = clustering.clusterize()
 
@@ -362,13 +399,15 @@ def main():
     for index in final_clusters:
         sample = final_centers[index]
         shutil.copy(listPaths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
-                                                    .format(index)+ 'extract.csv'))
+                                                    .format(index) + 'extract.csv'))
 
     # output file with clustering results
     file = open(os.path.join(args.output_path, protein_name + '_cluster_results.txt'), 'w+')
     file.write('CLUSTERING RESULTS \n')
+    # dictionary indices
     for index in final_clusters:
         file.write('CLUSTER {}:\n'.format(index))
+        # elements in dictionary
         for cluster in final_clusters[index]:
             mat = matrices[cluster].flatten()
             cent = matrices[final_centers[index]].flatten()
@@ -376,6 +415,19 @@ def main():
                        str(distance.jaccard(mat, cent)) + '\n')
     file.close()
 
+    # output file with clusters differences
+    file = open(os.path.join(args.output_path, protein_name + '_cluster_differences.txt'), 'w+')
+    file.write('CLUSTERS DIFFERENCES \n')
+    differences = confront_clusters(final_centers, listPaths, number_residues)
+    # dictionary indices
+    for index in differences:
+        file.write('CLUSTER {} - CLUSTER {}:\n'.format(index[0], index[1]))
+        # elements in dictionary
+        for elements in differences[index]:
+            file.write(str(elements) + '\n')
+    file.close()
+
+    # TODO: remove tempo
     print('tempo totale = ' + str(time.time() - inizio))
     sys.exit(0)
 

@@ -1,7 +1,7 @@
 # CONFIGURATION FILE for contact maps clustering algorithm
 # !!! IMPORTANT !!! Do not change variables order, correct order is:
 # contact_treshold, energy_treshold, method, optimal_ordering, truncation, truncate_mode,
-# color_threshold, orientation, distance_sort, show_leaf_counts, rangeK, toll, max_iter
+# color_threshold, orientation, distance_sort, show_leaf_counts, font_size, toll, max_iter
 
 # CONTACT MAPS FILTERING
 # residues in contact with a distance above the threshold are not considered
@@ -16,7 +16,7 @@ method = single
 
 # if True, the linkage matrix will be reordered so that the distance between successive leaves
 # is minimal (might become computationally expensive), acceptable values: True, False
-optimal_ordering = False
+optimal_ordering = True
 
 # value for truncate mode, acceptable values: Integer
 truncation = 50
@@ -41,14 +41,18 @@ distance_sort = descending
 # they contain in parentheses, acceptable values: True or False
 show_leaf_counts = True
 
+# change dendrogram's labels size, acceptable values: Integer
+font_size = 8
 
 # OPTIMAL CLUSTERING CONFIGURATIONS
-# acceptable values: a range 'x to y' in which to search for the optimal value or a single value
-# corresponding to the number of clusters we want to have for the clustering
-rangeK = 1 to 20
+# float
+damping = 0.5
 
-# tollerance between the distance from an old center and a new one, acceptable values: float (with .)
-toll = 20
+# int
+random_state = 0
+
+# Number of iterations with no change in the number of estimated clusters that stops the convergence, acceptable values: Integer
+toll = 10
 
 # maximum number of iterations, acceptable values: Integer
 max_iter = 300
