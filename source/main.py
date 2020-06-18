@@ -18,39 +18,47 @@ import concurrent.futures
 # import tmscoring
 from sklearn.cluster import AffinityPropagation
 from buildcontactmaps import list_contacts_per_snapshot, list_residues, list_matrix
-from builddistancematrix import distanceJaccard
+from scipy.spatial import distance
 
 
 ############################# K-MEANS IMPLEMENTATION #######################################################
 
-
-class k_means:
+# class used for clustering
+class affinity_propagation:
     start = time.time()
 
-    def __init__(self, indexes, max_iter, metric, number_residues, matrices, similarity_matrix):
-        self.metric = metric
+    def __init__(self, indexes, max_iter, number_residues, matrices, similarity_matrix):
         self.max_iter = max_iter
         self.indexes = indexes
         self.number_residues = number_residues
         self.matrices = matrices
         self.similarity_matrix = similarity_matrix
 
-        # list of indexes, have to return an contact map
-
-
+    # list of labels indicating which cluster the element in that position belongs to
     def getElements(self, labels, size):
-        elements = {}
+        # empty dictionary
+        clusters = {}
+        # creating size lists to represent the clusters
         for i in range(size):
-            elements[i] = []
+            clusters[i] = []
+        # for every element add the element to the cluster it belongs to
         for index in self.indexes:
-            elements[labels[index]].append(index)
-        return elements
+            clusters[labels[index]].append(index)
+        # return cluster list
+        return clusters
 
     def clusterize(self):
-        ap = AffinityPropagation(damping=0.6, affinity='precomputed', max_iter=self.max_iter)
+        pref = np.min(self.similarity_matrix)
+        ap = AffinityPropagation(damping=0.5, affinity='precomputed', max_iter=self.max_iter,
+                                 random_state=0)
+        # running clustering algorithm and getting a list indicating which cluster the element
+        # in that position belongs to
         labels = ap.fit_predict(self.similarity_matrix)
+        # getting the indexes indicating the elements that are the cluster centers
         centers = ap.cluster_centers_indices_
+        # number of clusters
         size = len(centers)
+        # repartition elements in the cluster
         clusters = self.getElements(labels, size)
 
         return clusters, centers
@@ -61,6 +69,7 @@ class k_means:
 def main():
     ############################# HELPER FUNCTIONS  ###########################################################
 
+    # function for parsing the values in the config file
     def parseConfigFile(path):
         List = []
         with open(path) as f:
@@ -74,6 +83,13 @@ def main():
     # this funtion creates a dendrogram.
     # we can also specify:
     # the type of link
+    # the orientation for the dendrogram
+    # the truncation and truncation mode
+    # color threshold
+    # labels font size
+    # optimal sorting for leaves
+    # which child to plot first in the dendrogram
+    # if the dendrogram is truncated we can see how many elements are not shown
     def make_dendrogram(array, labels, output_path, method, optimal_ordering, orientation, distance_sort,
                         show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name):
         plt.figure(figsize=(20, 10))
@@ -280,7 +296,7 @@ def main():
     ############################# DISTANCE MATRIX ################################################
 
     print('making distance matrix...')
-    # ordered crescently by snapshot
+    # ordered crescently by snapshot number
     list_names.sort(key=lambda f: int(re.sub('\D', '', f)))
     listPaths = [os.path.join(args.temporary_path, list_names[i] + '.csv') for i in range(number_files)]
 
@@ -290,31 +306,40 @@ def main():
         m = pd.read_csv(path, index_col=0)
         matrices.append(m.values)
 
-    # # NXN matrix with all zeros
-    # distance_matrix = np.zeros((number_files, number_files), dtype=float)
-    #
-    # # insert Jaccard distance into each element of the matrix dist
-    # for i in range(1, number_files):
-    #     for j in range(0, i):
-    #         distance_matrix[i, j] = distanceJaccard(matrices[i], matrices[j])
-    # # create DataFrame
-    # distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
-    # # export DataFrame into file csv
-    # distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
+    # NXN matrix with all zeros
+    distance_matrix = np.zeros((number_files, number_files), dtype=float)
 
-    distance_matrix = pd.read_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'), index_col=0)
-    distance_matrix = np.array(distance_matrix)
-    distance_matrix = np.tril(distance_matrix)
-    affinity_matrix = distance_matrix * -1
-    # affinity_matrix = np.exp(- distance_matrix ** 2 / (2. * 0.30 ** 2))
+    # insert Jaccard distance into each element of the matrix dist, we need a symmetric matrix
+    for i in range(1, len(listPaths)):
+        f_i = matrices[i].flatten()
+        for j in range(0, i):
+            f_j = matrices[j].flatten()
+            distance_matrix[i, j] = distance.jaccard(f_i, f_j)
+            distance_matrix[j, i] = distance_matrix[i, j]
+
+
+    # create DataFrame for distance_matrix
+    distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
+    # export DataFrame into file csv
+    distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
+
+    # # READ MATRIX FROM FILE
+    # distance_matrix = pd.read_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'), index_col=0)
+    # distance_matrix = np.array(distance_matrix)
+
+    # making similarity matrix from distance matrix. The similarity matrix is also called afinity matrix
+    affinity_matrix = 1 - distance_matrix
+
+    # indexes of snapshots (0 -> snapshot 1, 1-> snapshot 2, ...)
     indexes = [i for i in range(number_files)]
+    # labels of snapshots (1 -> snapshot 1, 2-> snapshot 2, ...) for dendrogram
     labels = [i + 1 for i in range(number_files)]
 
     ############################# DENDROGRAM ##################################################################
 
-    # Nota: quando viene passata la matrice e non un vettore, la metrica viene ignorata, non serve farne una custom
     # show message to user
     print('making dendrogram...')
+    # call function to create dendrogram
     make_dendrogram(distance_matrix, labels, args.output_path, method, optimal_ordering, orientation,
                     distance_sort,
                     show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name)
@@ -324,7 +349,9 @@ def main():
     # message to user
     print('clustering...')
 
-    clustering = k_means(indexes, max_iter, distanceJaccard, number_residues, matrices, affinity_matrix)
+    # creating instance of clustering class
+    clustering = affinity_propagation(indexes, max_iter, number_residues, matrices, affinity_matrix)
+    # running clustering algorithm and getting results
     final_clusters, final_centers = clustering.clusterize()
 
     ############################# PROCESSING RESULTS ############################################################
@@ -343,8 +370,10 @@ def main():
     for index in final_clusters:
         file.write('CLUSTER {}:\n'.format(index))
         for cluster in final_clusters[index]:
+            mat = matrices[cluster].flatten()
+            cent = matrices[final_centers[index]].flatten()
             file.write('Element: ' + str(list_names[cluster]) + ', distance from center: ' +
-                       str(distanceJaccard(matrices[cluster], matrices[final_centers[index]])) + '\n')
+                       str(distance.jaccard(mat, cent)) + '\n')
     file.close()
 
     print('tempo totale = ' + str(time.time() - inizio))
