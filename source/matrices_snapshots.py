@@ -1,5 +1,5 @@
 def list_contacts_per_snapshot(contact_threshold,energy_treshold,listPaths):
-        listCon = []  # ogni elemento contiene il dizionario dei contatti di un file
+        listCon = []
         numFiles = len(listPaths)
         for i in range(0, numFiles):
             contacts = {}
@@ -10,11 +10,16 @@ def list_contacts_per_snapshot(contact_threshold,energy_treshold,listPaths):
                     distance = float(distance)
                     energy = float(energy)
                     if (distance <= contact_threshold) & (energy > energy_treshold):
-                        edge_type, edge_loc = edge.split(":")  # edge_loc values are LIG, MC, SC
-                        contacts.setdefault((node_1,edge_type), [])  # for both node_1 end node_2 I have a key in the contacts
+                        edge_type, edge_loc = edge.split(":")
+                        contacts.setdefault((node_1,edge_type), [])
                         contacts.setdefault((node_2,edge_type), [])
-                        contacts[(node_1,edge_type)].append((node_2, edge_type))
-                        contacts[(node_2,edge_type)].append((node_1, edge_type))
+
+                        if (node_2,edge_type) not in contacts[(node_1,edge_type)]:
+                            contacts[(node_1,edge_type)].append((node_2, edge_type))
+
+                        if (node_1, edge_type) not in contacts[(node_2, edge_type)]:
+                            contacts[(node_2,edge_type)].append((node_1, edge_type))
+
                 listCon.append(contacts)
         return listCon
 
