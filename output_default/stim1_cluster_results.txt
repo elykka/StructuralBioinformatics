@@ -1,0 +1,115 @@
+CLUSTERING RESULTS 
+CLUSTER 0:
+Element: 1, distance from center: 0.0
+Element: 2, distance from center: 17.771067855173435
+Element: 3, distance from center: 16.80522251789512
+Element: 5, distance from center: 16.140660774347445
+CLUSTER 1:
+Element: 4, distance from center: 16.878223206387908
+Element: 6, distance from center: 15.256057381306134
+Element: 7, distance from center: 14.808336223405597
+Element: 9, distance from center: 16.031074475443297
+Element: 10, distance from center: 0.0
+Element: 11, distance from center: 16.28515279481245
+CLUSTER 2:
+Element: 8, distance from center: 17.595542071081358
+Element: 12, distance from center: 14.157256336477921
+Element: 13, distance from center: 0.0
+Element: 14, distance from center: 16.93398033311958
+Element: 15, distance from center: 16.00581289755782
+Element: 18, distance from center: 13.835019043643724
+Element: 19, distance from center: 14.636897201590314
+Element: 20, distance from center: 14.411451088652386
+CLUSTER 3:
+Element: 0, distance from center: 18.35473029033682
+Element: 17, distance from center: 17.02711016644208
+Element: 21, distance from center: 16.202210587045723
+Element: 22, distance from center: 12.556724008651996
+Element: 24, distance from center: 16.399848741975944
+Element: 25, distance from center: 0.0
+Element: 26, distance from center: 14.70115747170106
+Element: 30, distance from center: 15.109830467089497
+CLUSTER 4:
+Element: 16, distance from center: 15.556747831753752
+Element: 23, distance from center: 15.53790064935245
+Element: 27, distance from center: 16.299522036079804
+Element: 28, distance from center: 0.0
+CLUSTER 5:
+Element: 29, distance from center: 17.146789877431146
+Element: 31, distance from center: 16.675749463068783
+Element: 32, distance from center: 13.835019043643724
+Element: 33, distance from center: 0.0
+Element: 34, distance from center: 13.149114981861006
+Element: 35, distance from center: 14.922227320914736
+Element: 36, distance from center: 15.609379013218128
+Element: 40, distance from center: 15.43578847650721
+CLUSTER 6:
+Element: 37, distance from center: 15.635281113682478
+Element: 38, distance from center: 15.094328726045505
+Element: 39, distance from center: 15.424434456231246
+Element: 41, distance from center: 14.342218266579321
+Element: 42, distance from center: 0.0
+Element: 43, distance from center: 14.989195074861364
+CLUSTER 7:
+Element: 44, distance from center: 15.420614411793371
+Element: 45, distance from center: 15.925115457213536
+Element: 55, distance from center: 15.074903421856295
+Element: 56, distance from center: 0.0
+Element: 58, distance from center: 13.818087236796597
+Element: 62, distance from center: 12.278423755616219
+Element: 65, distance from center: 11.106252167554207
+Element: 70, distance from center: 16.107969042268074
+Element: 78, distance from center: 17.65201967055363
+Element: 79, distance from center: 14.792518536448174
+Element: 84, distance from center: 15.23337828432972
+CLUSTER 8:
+Element: 52, distance from center: 15.710362945392728
+Element: 53, distance from center: 13.973618554400145
+Element: 54, distance from center: 17.817159223363806
+Element: 57, distance from center: 0.0
+Element: 59, distance from center: 12.153794826397665
+Element: 64, distance from center: 12.896847761005114
+Element: 67, distance from center: 13.487749250522164
+Element: 74, distance from center: 12.283221050679053
+Element: 75, distance from center: 15.129210926410334
+Element: 76, distance from center: 13.077230344701134
+Element: 77, distance from center: 16.107969042268078
+Element: 81, distance from center: 14.926174917721507
+Element: 82, distance from center: 15.439604766600636
+Element: 83, distance from center: 14.899040081456162
+Element: 85, distance from center: 13.965627794335726
+Element: 87, distance from center: 15.609379013218128
+Element: 88, distance from center: 17.306896953831522
+CLUSTER 9:
+Element: 46, distance from center: 15.336838156907136
+Element: 47, distance from center: 13.932061067243257
+Element: 48, distance from center: 15.832554040389708
+Element: 49, distance from center: 14.705164414759745
+Element: 50, distance from center: 15.673015372056303
+Element: 51, distance from center: 15.109830467089502
+Element: 60, distance from center: 12.663565511848088
+Element: 61, distance from center: 0.0
+Element: 63, distance from center: 12.430145901468054
+Element: 66, distance from center: 13.818087236796597
+Element: 68, distance from center: 14.926174917721504
+Element: 69, distance from center: 13.604490822615734
+Element: 71, distance from center: 15.710362945392733
+Element: 73, distance from center: 13.927831709351999
+Element: 80, distance from center: 17.668611857224107
+Element: 86, distance from center: 14.153094273669621
+CLUSTER 10:
+Element: 89, distance from center: 16.009493307690672
+Element: 90, distance from center: 16.66905409257182
+Element: 91, distance from center: 0.0
+Element: 92, distance from center: 15.004805431811226
+Element: 100, distance from center: 16.933980333119585
+CLUSTER 11:
+Element: 72, distance from center: 15.643112757510446
+Element: 93, distance from center: 0.0
+Element: 94, distance from center: 15.109830467089504
+Element: 95, distance from center: 13.927831709351997
+CLUSTER 12:
+Element: 96, distance from center: 17.136840952446796
+Element: 97, distance from center: 0.0
+Element: 98, distance from center: 15.717466707135808
+Element: 99, distance from center: 17.830293879938196

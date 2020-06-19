@@ -374,10 +374,8 @@ def main():
     # making similarity matrix from distance matrix. The similarity matrix is also called affinity matrix
     affinity_matrix = distance_matrix * -1
 
-    # indexes of snapshots (0 -> snapshot 1, 1-> snapshot 2, ...)
+    # indexes of snapshots (0 -> first snapshot, 1-> second snapshot, ...)
     indexes = [i for i in range(number_files)]
-    # labels of snapshots (1 -> snapshot 1, 2-> snapshot 2, ...) for dendrogram
-    labels = [i + 1 for i in range(number_files)]
 
     ############################# DENDROGRAM ##################################################################
 
@@ -385,7 +383,7 @@ def main():
     print('making dendrogram...')
 
     # call function to create dendrogram
-    make_dendrogram(squareform(distance_matrix), labels, args.output_path, method, optimal_ordering, orientation,
+    make_dendrogram(squareform(distance_matrix), indexes, args.output_path, method, optimal_ordering, orientation,
                     distance_sort,
                     show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name, font_size)
 
@@ -419,7 +417,7 @@ def main():
         file.write('CLUSTER {}:\n'.format(index))
         # elements in dictionary
         for cluster in final_clusters[index]:
-            file.write('Element: ' + str(list_names[cluster]) + ', distance from center: ' +
+            file.write('Element: ' + str(cluster) + ', distance from center: ' +
                        str(distance_matrix[cluster][final_centers[index]]) + '\n')
     file.close()
 
@@ -433,6 +431,13 @@ def main():
         # elements in dictionary
         for elements in differences[index]:
             file.write(str(elements) + '\n')
+    file.close()
+
+    # legend for indexes to snapshots
+    file = open(os.path.join(args.output_path, protein_name + '_legend.txt'), 'w+')
+    file.write('LEGEND: \n')
+    for index in indexes:
+        file.write('Snapshot {} -> index {}:\n'.format(list_names[index], index))
     file.close()
 
     # delete temporary folder and all it's content
