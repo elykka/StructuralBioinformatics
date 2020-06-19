@@ -9,18 +9,17 @@ import os
 from matplotlib import pyplot as plt
 import scipy.cluster.hierarchy as shc
 import shutil
-import time
+import configparser
 from scipy.spatial.distance import squareform
 from sklearn.cluster import AffinityPropagation
-from buildcontactmaps import list_contacts_per_snapshot, list_residues, list_matrix
-from scipy.spatial import distance
+from matrices_snapshots import list_contacts_per_snapshot, list_residues, list_matrix
+from scipy.spatial.distance import cdist
 
 
 ############################# K-MEANS IMPLEMENTATION #######################################################
 
 # class used for clustering
 class affinity_propagation:
-    start = time.time()
 
     def __init__(self, indexes, damping, max_iter, toll, random_state, number_residues, matrices, similarity_matrix):
         self.indexes = indexes
@@ -47,7 +46,7 @@ class affinity_propagation:
 
     def clusterize(self):
         #TODO: remove if useless
-        #pref = np.min(self.similarity_matrix)
+        pref = np.min(self.similarity_matrix)
 
         ap = AffinityPropagation(damping=self.damping, affinity='precomputed', max_iter=self.max_iter,
                                  random_state=self.random_state, convergence_iter=self.toll)
@@ -86,21 +85,6 @@ def main():
         # return all values
         protein_name = list[0].split('/')[-3]
         return protein_name, names, list
-
-    # function for parsing the values in the config file, path is the path to the config file
-    def parseConfigFile(path):
-        List = []
-        # open file
-        with open(path) as f:
-            # for every line
-            for line in f:
-                # ignore comments or empty lines
-                if not line.startswith(('#', '\n')):
-                    # eliminate spaces, new lines and split values from names
-                    x, y = line.replace(' ', '').replace('\n', '').split('=')
-                    List.append((x, y))
-        # return all values
-        return np.array(List)[:, 1]
 
     # Given an array of points or a distance matrix and the labels associated to the elements,
     # this function creates a dendrogram.
@@ -202,9 +186,23 @@ def main():
 
     # reading all the variables
     try:
-        contact_treshold, energy_treshold, method, optimal_ordering, truncation, truncate_mode, \
-        color_threshold, orientation, distance_sort, show_leaf_counts, \
-        font_size, damping, random_state, toll, max_iter = parseConfigFile(args.config_file)
+        config = configparser.ConfigParser()
+        config.read(args.config_file)
+        contact_threshold = config['CONTACT MAPS FILTERING CONFIGURATIONS']['contact_threshold']
+        energy_threshold = config['CONTACT MAPS FILTERING CONFIGURATIONS']['energy_threshold']
+        method = config['DENDROGRAM CONFIGURATIONS']['method']
+        optimal_ordering = config['DENDROGRAM CONFIGURATIONS']['optimal_ordering']
+        truncation = config['DENDROGRAM CONFIGURATIONS']['truncation']
+        truncate_mode = config['DENDROGRAM CONFIGURATIONS']['truncate_mode']
+        color_threshold = config['DENDROGRAM CONFIGURATIONS']['color_threshold']
+        orientation = config['DENDROGRAM CONFIGURATIONS']['orientation']
+        distance_sort = config['DENDROGRAM CONFIGURATIONS']['distance_sort']
+        show_leaf_counts = config['DENDROGRAM CONFIGURATIONS']['show_leaf_counts']
+        font_size = config['DENDROGRAM CONFIGURATIONS']['font_size']
+        damping = config['OPTIMAL CLUSTERING CONFIGURATIONS']['damping']
+        random_state = config['OPTIMAL CLUSTERING CONFIGURATIONS']['random_state']
+        toll = config['OPTIMAL CLUSTERING CONFIGURATIONS']['toll']
+        max_iter = config['OPTIMAL CLUSTERING CONFIGURATIONS']['max_iter']
 
     except ValueError:
         logging.error("Couldn't parse configuration file, please check", ValueError.args)
@@ -212,17 +210,17 @@ def main():
 
     # checking if values are correct, otherwise show user an error
     try:
-        contact_treshold = float(contact_treshold)
+        contact_threshold = float(contact_threshold)
     except ValueError:
-        logging.error("In config file contact_treshold value is not convertible to float, please check",
-                      ValueError.args, 'contact_treshold', contact_threshold)
+        logging.error("In config file contact_threshold value is not convertible to float, please check",
+                      ValueError.args, 'contact_threshold', contact_threshold)
         sys.exit(1)
 
     try:
-        energy_treshold = float(energy_treshold)
+        energy_threshold = float(energy_threshold)
     except ValueError:
-        logging.error("In config file energy_treshold value is not convertible to float, please check",
-                      ValueError.args, 'energy_treshold', energy_treshold)
+        logging.error("In config file energy_threshold value is not convertible to float, please check",
+                      ValueError.args, 'energy_threshold', energy_threshold)
         sys.exit(1)
 
     if method not in ['single', 'complete', 'average', 'weighted', 'centroid', 'median', 'ward']:
@@ -325,7 +323,7 @@ def main():
 
     # get a list of dictionaries that contain the contats for all files
     # each cell contains a dictionary that contains all residues contacts in a file
-    list_contacts = list_contacts_per_snapshot(contact_treshold, energy_treshold, list_paths)
+    list_contacts = list_contacts_per_snapshot(contact_threshold, energy_threshold, list_paths)
 
     # get a list that contains all residues contained in a file
     # the list is ordered
@@ -356,13 +354,16 @@ def main():
     # NXN matrix with all zeros
     distance_matrix = np.zeros((number_files, number_files), dtype=float)
 
-    # insert Jaccard distance into each element of the matrix dist, we need a symmetric matrix
-    for i in range(1, len(listPaths)):
-        f_i = matrices[i].flatten()
-        for j in range(0, i):
-            f_j = matrices[j].flatten()
-            distance_matrix[i, j] = distance.jaccard(f_i, f_j)
-            distance_matrix[j, i] = distance_matrix[i, j]
+    # insert distances into each element of the distance_matrix, we need a symmetric matrix
+    for i in range(0, len(listPaths)):
+        f_i = matrices[i].reshape(1, -1)
+        for j in range(0, len(listPaths)):
+            f_j = matrices[j].reshape(1, -1)
+            val = cdist(f_i, f_j, metric='cityblock')
+            if (val != 0):
+                distance_matrix[i, j] = np.sqrt(val)
+            else:
+                distance_matrix[i, j] = 0
 
 
     # create DataFrame for distance_matrix
@@ -371,7 +372,7 @@ def main():
     distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
 
     # making similarity matrix from distance matrix. The similarity matrix is also called affinity matrix
-    affinity_matrix = 1 - distance_matrix
+    affinity_matrix = distance_matrix * -1
 
     # indexes of snapshots (0 -> snapshot 1, 1-> snapshot 2, ...)
     indexes = [i for i in range(number_files)]
@@ -404,11 +405,11 @@ def main():
 
     print('working on outputs...')
 
-    # extract samples from the clusters
-    for index in final_clusters:
-        sample = final_centers[index]
-        shutil.copy(list_paths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
-                                                    .format(index) + 'extract_'+list_names[sample]))
+    # # extract samples from the clusters
+    # for index in final_clusters:
+    #     sample = final_centers[index]
+    #     shutil.copy(list_paths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
+    #                                                 .format(index) + 'extract_'+list_names[sample]))
 
     # output file with clustering results
     file = open(os.path.join(args.output_path, protein_name + '_cluster_results.txt'), 'w+')
@@ -418,10 +419,8 @@ def main():
         file.write('CLUSTER {}:\n'.format(index))
         # elements in dictionary
         for cluster in final_clusters[index]:
-            mat = matrices[cluster].flatten()
-            cent = matrices[final_centers[index]].flatten()
             file.write('Element: ' + str(list_names[cluster]) + ', distance from center: ' +
-                       str(distance.jaccard(mat, cent)) + '\n')
+                       str(distance_matrix[cluster][final_centers[index]]) + '\n')
     file.close()
 
     # output file with clusters differences
