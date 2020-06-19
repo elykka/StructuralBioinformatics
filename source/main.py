@@ -6,14 +6,11 @@ import argparse
 import logging
 import sys
 import os
-from os import listdir
-from os.path import isfile, join
 from matplotlib import pyplot as plt
 import scipy.cluster.hierarchy as shc
 import shutil
 import time
 from scipy.spatial.distance import squareform
-import concurrent.futures
 from sklearn.cluster import AffinityPropagation
 from buildcontactmaps import list_contacts_per_snapshot, list_residues, list_matrix
 from scipy.spatial import distance
@@ -71,6 +68,24 @@ class affinity_propagation:
 
 def main():
     ############################# HELPER FUNCTIONS  ###########################################################
+
+    # function for parsing the edges_paths in the input file, path is the path to the input file
+    def parseInputFile(path):
+        list = []
+        names = []
+        # open file
+        with open(path) as f:
+            # for every line, meaning edges file path
+            for line in f:
+                # ignore comments or empty lines
+                if not line.startswith(('#', '\n')):
+                    line = line.replace('\n', '')
+                    list.append(line)
+                    # eliminate spaces, new lines and split values from names
+                    names.append(line.split('/')[-1])
+        # return all values
+        protein_name = list[0].split('/')[-3]
+        return protein_name, names, list
 
     # function for parsing the values in the config file, path is the path to the config file
     def parseConfigFile(path):
@@ -143,10 +158,9 @@ def main():
 
     ############################# ARGUMENT PARSER ############################################################
 
-    inizio = time.time()
     parser = argparse.ArgumentParser(description='Arguments for clustering contact maps.')
-    parser.add_argument('input_path', metavar='contact_maps_file', type=str,
-                        help='the directory which contains the paths to RING contact map files (edge files), one '
+    parser.add_argument('input_file', metavar='contact_maps_file', type=str,
+                        help='the file which contains the paths to RING contact map files (edge files), one '
                              'file per line')
     parser.add_argument('output_path', metavar='output_path', type=str,
                         help='the path of the output directory in which to save the results')
@@ -174,10 +188,9 @@ def main():
         logging.error('temporary_path not a directory path, please check path', 'temporary_path', args.temporary_path)
         sys.exit(1)
 
-    # TODO: substitute path with file containing residues paths
-    # if temporary directory doesn't already exist we show an error
-    if not os.path.exists(args.input_path):
-        logging.error('input_path directory does not exists, please check path', 'input_path', args.input_path)
+    # if input file doesn't exist we show an error
+    if not os.path.isfile(args.input_file):
+        logging.error('input file does not found, please check path', 'input_file', args.input_file)
         sys.exit(1)
 
     # if config file isn't found or does not exist we show an error
@@ -187,17 +200,14 @@ def main():
 
     ############################# CONFIG FILE PARSING #########################################################
 
-    # saving protein name (name on folder before edges folder)
-    protein_name = args.input_path.split('/')[-2]
-
     # reading all the variables
     try:
         contact_treshold, energy_treshold, method, optimal_ordering, truncation, truncate_mode, \
         color_threshold, orientation, distance_sort, show_leaf_counts, \
         font_size, damping, random_state, toll, max_iter = parseConfigFile(args.config_file)
+
     except ValueError:
-        logging.error("Couldn't parse configuration file, please check",
-                      ValueError.args, 'config_file', args.config_file)
+        logging.error("Couldn't parse configuration file, please check", ValueError.args)
         sys.exit(1)
 
     # checking if values are correct, otherwise show user an error
@@ -302,16 +312,20 @@ def main():
     ############################# READ INPUT ###############################################################
 
     print('reading contact maps...')
-    # all files names contained in input_path are added in a list
+    # the protein name, all files names and all files paths contained in input_file are returned
     # not ordered
-    list_names = [f for f in listdir(args.input_path) if isfile(join(args.input_path, f))]
+    try:
+        protein_name, list_names, list_paths = parseInputFile(args.input_file)
+    except ValueError:
+        logging.error("Couldn't parse input_file, please check", ValueError.args)
+        sys.exit(1)
 
     # the total number of edges file
     number_files = len(list_names)
 
     # get a list of dictionaries that contain the contats for all files
     # each cell contains a dictionary that contains all residues contacts in a file
-    list_contacts = list_contacts_per_snapshot(contact_treshold, energy_treshold, list_names, args.input_path)
+    list_contacts = list_contacts_per_snapshot(contact_treshold, energy_treshold, list_paths)
 
     # get a list that contains all residues contained in a file
     # the list is ordered
@@ -342,24 +356,19 @@ def main():
     # NXN matrix with all zeros
     distance_matrix = np.zeros((number_files, number_files), dtype=float)
 
-    # # insert Jaccard distance into each element of the matrix dist, we need a symmetric matrix
-    # for i in range(1, len(listPaths)):
-    #     f_i = matrices[i].flatten()
-    #     for j in range(0, i):
-    #         f_j = matrices[j].flatten()
-    #         distance_matrix[i, j] = distance.jaccard(f_i, f_j)
-    #         distance_matrix[j, i] = distance_matrix[i, j]
-    #
-    #
-    # # create DataFrame for distance_matrix
-    # distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
-    # # export DataFrame into file csv
-    # distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
+    # insert Jaccard distance into each element of the matrix dist, we need a symmetric matrix
+    for i in range(1, len(listPaths)):
+        f_i = matrices[i].flatten()
+        for j in range(0, i):
+            f_j = matrices[j].flatten()
+            distance_matrix[i, j] = distance.jaccard(f_i, f_j)
+            distance_matrix[j, i] = distance_matrix[i, j]
 
-    # # TODO:remove
-    # READ MATRIX FROM FILE
-    distance_matrix = pd.read_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'), index_col=0)
-    distance_matrix = np.array(distance_matrix)
+
+    # create DataFrame for distance_matrix
+    distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
+    # export DataFrame into file csv
+    distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
 
     # making similarity matrix from distance matrix. The similarity matrix is also called affinity matrix
     affinity_matrix = 1 - distance_matrix
@@ -395,11 +404,11 @@ def main():
 
     print('working on outputs...')
 
-    # # extract samples from the clusters
-    # for index in final_clusters:
-    #     sample = final_centers[index]
-    #     shutil.copy(listPaths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
-    #                                                 .format(index) + 'extract.csv'))
+    # extract samples from the clusters
+    for index in final_clusters:
+        sample = final_centers[index]
+        shutil.copy(list_paths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
+                                                    .format(index) + 'extract_'+list_names[sample]))
 
     # output file with clustering results
     file = open(os.path.join(args.output_path, protein_name + '_cluster_results.txt'), 'w+')
@@ -427,10 +436,10 @@ def main():
             file.write(str(elements) + '\n')
     file.close()
 
+    # delete temporary folder and all it's content
+    shutil.rmtree(args.temporary_path)
 
-
-    # TODO: remove tempo
-    print('tempo totale = ' + str(time.time() - inizio))
+    # terminate program
     sys.exit(0)
 
 

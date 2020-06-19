@@ -11,6 +11,7 @@
  energy_treshold = 7
 
 # DENDROGRAM CONFIGURATIONS
+
 # type of linkage, acceptable values: single, complete, average, weighted, centroid, median, ward
 method = single
 
@@ -45,13 +46,17 @@ show_leaf_counts = True
 font_size = 8
 
 # OPTIMAL CLUSTERING CONFIGURATIONS
-# float
+
+# is the extent to which the current value is maintained relative to incoming values (weighted 1 - damping).
+# This in order to avoid numerical oscillations, acceptable values: Float, between 0.5 and 1
 damping = 0.5
 
-# int
+# Generator to control the starting state of the algorithm, an int is used for reproducible results across function calls,
+# acceptable values: Integer
 random_state = 0
 
-# Number of iterations with no change in the number of estimated clusters that stops the convergence, acceptable values: Integer
+# Number of iterations with no change in the number of estimated clusters that stops the convergence,
+# acceptable values: Integer
 toll = 10
 
 # maximum number of iterations, acceptable values: Integer

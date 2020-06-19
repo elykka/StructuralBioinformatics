@@ -24,7 +24,7 @@ def make_dendrogram(array, labels, output_path, method, optimal_ordering, orient
                    color_threshold=color_threshold,
                    leaf_font_size=8
                    )
-    plt.savefig(os.path.join(output_path, protein_name + '_MNH_dendrogram.png'))
+    plt.savefig(os.path.join(output_path, protein_name + '_RMSD_dendrogram.png'))
 
 def getElements(labels, size, indexes):
     elements = {}
@@ -34,15 +34,17 @@ def getElements(labels, size, indexes):
         elements[labels[index]].append(index)
     return elements
 
+# path were to save outputs
 output_path = '/home/elykka/Documents/CMC/output'
-input_path = '/home/elykka/Documents/CMC/data/antibody/pdb'
+# path to pdb files
+input_path = '/home/elykka/Documents/CMC/data/vhl/pdb'
 
 list_names = [os.path.join(input_path, f) for f in listdir(input_path) if isfile(join(input_path, f))]
 list_names.sort(key=lambda f: int(re.sub('\D', '', f)))
 print(list_names)
  # the total number of edges file
 number_files = len(list_names)
-protein_name = input_path.split('/')[-2]
+protein_name = input_path.split('/')[-3]
 
 # NXN matrix with all zeros
 distance_matrix = np.zeros((number_files, number_files), dtype=float)
@@ -59,8 +61,9 @@ for i in range(1, number_files):
 distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
 # export DataFrame into file csv
 distance_df.to_csv(os.path.join(output_path, protein_name + '_RMSD_distance_matrix.csv'))
-distance_matrix = pd.read_csv(os.path.join(output_path, protein_name + '_RMSD_distance_matrix.csv'), index_col=0)
-distance_matrix = np.array(distance_matrix)
+
+# distance_matrix = pd.read_csv(os.path.join(output_path, protein_name + '_RMSD_distance_matrix.csv'), index_col=0)
+# distance_matrix = np.array(distance_matrix)
 
 affinity_matrix = distance_matrix * -1
 indexes = [i for i in range(number_files)]
