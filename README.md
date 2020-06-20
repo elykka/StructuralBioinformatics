@@ -1,6 +1,6 @@
 # USER MANUAL
 
-### SCOPE
+### PURPOSE
 
 This program wants to test a different approach to try and provide a clusterization of the structures obtained in Molecular Dynamics trajectories, this is done using the structure's contact map, one for each of them.
 
