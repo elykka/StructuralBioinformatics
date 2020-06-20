@@ -41,13 +41,14 @@ After the program has ended, in the output directory the user can find:
   * the clusters;
   * which elements belong to which clusters;
   * their distance from the cluster center;
-  * the file name is going to be *protein-name_results*.
+  * the file name is going to be *protein-name_cluster_results*.
   * NOTE: the elements are represented as indexes, see legend to refer back to the snapshot associated.
 * a file containing the differences from cluster to cluster, in terms of residues and contacts all the contacts that were considered in the program are shown. 
-  * The differences were found by confronting the clusters centers since Affinity Propagation tries to identify the center of the cluster as the element that is more suited to represent all other elements in the cluster.
-  * the file name is going to be *protein-name_differences*.
+  * the differences were found by confronting the clusters centers since Affinity Propagation tries to identify the center of the cluster as the element that is more suited to represent all other elements in the cluster.
+  * the file does not contain repetitions, if the user wants to find the differences between cluster i and j and i < j, the file will contain the comparison under "CLUSTER i - CLUSTER j". 
+  * the file name is going to be *protein-name_cluster_differences*.
 * a series of edges files used as an example, one for each cluster in the optimal clusterization, the examples chosen were the centers of the clusterization.
-  * the file name are going to be *protein-name_Cluster**x**\_extract_**edges-file-name***, where **x** is the number of cluster and **edges-file-name** is the name of the edges file used as an example.
+  * the file name are going to be *protein-name_Cluster_**x**\_extract_**edges-file-name***, where **x** is the number of cluster and **edges-file-name** is the name of the edges file used as an example.
 
 **protein-name is obtained from the paths of edges files, usually the path is .../protein-name/edges/edges-file-name should that folder name be different then the resulting output files will have that name**
 

@@ -71,6 +71,163 @@ class affinity_propagation:
 def main():
     ############################# HELPER FUNCTIONS  ###########################################################
 
+    # Given the energy threshold, the contact threshold and the list of all file edges, this function
+    # returns the list of contacts that are to be considered for all snapshots.
+    # The list returned is actually a list of dictionaries, where the key represents the residue, node_1, we found
+    # involved in a contact and the value represents all the residues node_2 involved in a contact with node_1.
+    def list_contacts_per_snapshot(contact_threshold, energy_threshold, listPaths):
+
+        listCon = []
+        # total number of file edges
+        numFiles = len(listPaths)
+        # for every edges file
+        for i in range(0, numFiles):
+            # dictionary containing all contacts that we will consider
+            contacts = {}
+            # open files for parsing
+            with open(listPaths[i]) as f:
+                next(f)
+                # parse every line and get the residues distance and energy
+                # every line is a contact
+                for line in f:
+                    node_1, edge, node_2, distance, _, energy, atom_1, atom_2 = line.split()[0:8]
+                    distance = float(distance)
+                    energy = float(energy)
+                    # check if contact energy and distance values are inside the thresholds
+                    if (distance <= contact_threshold) & (energy > energy_threshold):
+                        edge_type, edge_loc = edge.split(":")
+                        contacts.setdefault((node_1, edge_type), [])
+                        contacts.setdefault((node_2, edge_type), [])
+
+                        # check if the contact has already been added to the dictionary
+                        if (node_2, edge_type) not in contacts[(node_1, edge_type)]:
+                            contacts[(node_1, edge_type)].append((node_2, edge_type))
+
+                        if (node_1, edge_type) not in contacts[(node_2, edge_type)]:
+                            contacts[(node_2, edge_type)].append((node_1, edge_type))
+                # add dictionary to the list of contacts
+                listCon.append(contacts)
+        return listCon
+
+    # given the number of files and the list of contacts, this function returns a list with all the different
+    # residues contained in the files.
+    def list_residues(numFiles, listDizCont):
+        res = []
+        # for all files
+        for i in range(0, numFiles):
+            # for every residue in the first position of the contact
+            for node in listDizCont[i].keys():
+                numNode2 = len(listDizCont[i][node])
+                # for every residue in the second position of the contact that we found
+                for j in range(0, numNode2):
+                    # if the contact is not already present in the list, add it
+                    if listDizCont[i][node][j] not in res:
+                        res.append(listDizCont[i][node][j])
+        # removing duplicates
+        res = list(dict.fromkeys(res))
+        # numerical order
+        res.sort(key=lambda x: int(x[0].split(':')[1]))
+        # alphabetic order
+        res.sort(key=lambda x: x[0].split(':')[0])
+        return res
+
+    # given a list of contacts we count how many of each type are present and we assign some penalties, called costs,
+    # to make sure that the most common contacts don't overshadow the rest.
+    def costants(list_diz_contacts):
+        hid, vdw, pip, pic, ioc, ss, iac = 0, 0, 0, 0, 0, 0, 0
+        # counting for each type of contact how many of are present
+        for i in list_diz_contacts[7]:
+            if i[1] == 'HBOND':
+                hid = hid + 1
+            if i[1] == 'VDW':
+                vdw = vdw + 1
+            if i[1] == 'PICATION':
+                pic = pic + 1
+            if i[1] == 'PIPISTACK':
+                pip = pip + 1
+            if i[1] == 'IONIC':
+                ioc = ioc + 1
+            if i[1] == 'SSBOND':
+                ss = ss + 1
+            if i[1] == 'IAC':
+                iac = iac + 1
+        # total number of contacts
+        tot = hid + ss + ioc + pip + pic
+        # calculating penalties
+        hid = 1 - (hid / tot)
+        ss = 1 - (ss / tot)
+        ioc = 1 - (ioc / tot)
+        pip = 1 - (pip / tot)
+        pic = 1 - (pic / tot)
+
+        return hid, ss, ioc, pip, pic
+
+    # Given the index indicating a contact map, the list of contacts and the list of residues, this function
+    # builds a matrix with a value in the cell[i][j] if there was a connection between residues i and j, otherwise
+    # the cell will contain 0.
+    def build_matrix(index, list_contacts, list_res):
+        matrix = {}
+        # for every contact
+        for node1 in list_contacts[index].keys():
+            # we calculate the weights based on the number and type of contacts
+            costH, costS, costI, costPIP, costPIC = costants(list_contacts)
+            matrix.setdefault(node1, [])
+            # for every residue, we look if a contact present in the file
+            for residue in list_res:
+                find = False
+                num_contacts = len(list_contacts[index][node1])
+                # for every other contact, we search if there is a connection
+                for node2 in range(0, num_contacts):
+                    # if we find a match, the residue has a contact
+                    if residue == list_contacts[index][node1][node2]:
+                        find = True
+                        # we assign a value based the type of bond using weights and a penalty
+                        # and we put the value in the corresponding matrix cell
+                        if list_contacts[index][node1][node2][1] == "HBOND":
+                            val = 17.0000 * costH
+                            matrix[node1].append(val)
+
+                        if list_contacts[index][node1][node2][1] == "VDW":
+                            val = 6.000
+                            matrix[node1].append(val)
+
+                        if list_contacts[index][node1][node2][1] == "SSBOND":
+                            val = 167.000 * costS
+                            matrix[node1].append(val)
+
+                        if list_contacts[index][node1][node2][1] == "IONIC":
+                            val = 20.000 * costI
+                            matrix[node1].append(val)
+
+                        if list_contacts[index][node1][node2][1] == "PIPISTACK":
+                            val = 9.400 * costPIP
+                            matrix[node1].append(val)
+
+                        if list_contacts[index][node1][node2][1] == "PICATION":
+                            val = 9.600 * costPIC
+                            matrix[node1].append(val)
+
+                        if list_contacts[index][node1][node2][1] == "IAC":
+                            val = 0
+                            matrix[node1].append(val)
+                # if the contact combination was not present, we put 0  in the corresponding matrix cell
+                # to signify that the contact was not present
+                if not find:
+                    matrix[node1].append(0)
+        return matrix
+
+    # Given the total number of files, the contacts list and the list of residues considered, this
+    # function returns the list containing the matrices representing the contact maps.
+    def list_matrix(num_files, list_contacts, list_res):
+        mat_list = []
+        # for every file
+        for i in range(0, num_files):
+            # make matrix
+            matrix = build_matrix(i, list_contacts, list_res)
+            # add matrix to list
+            mat_list.append(matrix)
+        return mat_list
+
     # Function for parsing the file edges paths written in the input file, path is the path to the input file.
     def parseInputFile(path):
         list = []
@@ -127,7 +284,7 @@ def main():
         snap_1 = np.delete(snap_1, 0, 1)
         snap_2 = np.delete(snap_2, 0, 1)
         list = []
-        for i in range(0, number_residues-1):
+        for i in range(0, number_residues - 1):
             for j in range(i, number_residues):
                 if snap_1[i, j] != snap_2[i, j]:
                     list.append((residues[i][0], residues[j][0]))
@@ -145,7 +302,7 @@ def main():
         for el_1 in range(0, elements - 1):
             for el_2 in range(el_1 + 1, elements):
                 # adding the differences between centers el_1 and el_2 to the dictionary
-                    differences[(el_1, el_2)] = get_differences(el_1, el_2, list_paths, number_residues)
+                differences[(el_1, el_2)] = get_differences(el_1, el_2, list_paths, number_residues)
         return differences
 
     ############################# ARGUMENT PARSER ############################################################
@@ -377,11 +534,11 @@ def main():
     except ValueError:
         logging.error("An error occurred while saving contact maps as csv files, please check", ValueError.args)
         sys.exit(1)
+
     ############################# DISTANCE MATRIX ################################################
 
     print('making distance matrix...')
-
-    # sorting snapshots names by ascending order
+    # ordered crescently by snapshot number
     list_names.sort(key=lambda f: int(re.sub('\D', '', f)))
     listPaths = [os.path.join(args.temporary_path, list_names[i] + '.csv') for i in range(number_files)]
 
@@ -394,7 +551,7 @@ def main():
     # NXN matrix with all zeros
     distance_matrix = np.zeros((number_files, number_files), dtype=float)
 
-    # insert distances into each element of the distance_matrix, we need a symmetric matrix for the clustering
+    # insert distances into each element of the distance_matrix, we need a symmetric matrix
     for i in range(0, len(listPaths)):
         f_i = matrices[i].reshape(1, -1)
         for j in range(0, len(listPaths)):
@@ -404,7 +561,6 @@ def main():
                 distance_matrix[i, j] = np.sqrt(val)
             else:
                 distance_matrix[i, j] = 0
-
 
     # create DataFrame for distance_matrix
     distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
@@ -440,7 +596,7 @@ def main():
     try:
         # creating instance of clustering class
         clustering = affinity_propagation(indexes, damping, max_iter, toll, random_state, number_residues,
-                                          matrices, affinity_matrix)
+                                      matrices, affinity_matrix)
 
         # running clustering algorithm and getting results
         final_clusters, final_centers = clustering.clusterize()
@@ -469,7 +625,7 @@ def main():
         for cluster in final_clusters[index]:
             # write element and distance from center
             file.write('Element: ' + str(cluster) + ', distance from center: ' +
-                        str(distance_matrix[cluster][final_centers[index]]) + '\n')
+                       str(distance_matrix[cluster][final_centers[index]]) + '\n')
     file.close()
 
     # output file with clusters differences
