@@ -16,7 +16,7 @@ The scope of this project was to choose, motivate, test and evaluate a different
 
 To launch the program, the following instruction must be used in the terminal:
 
-python3 	nome_file.py 	input_file_path	 output_directory_path 	config_file_path 	temporary_directory_path
+`<python3  	nome_file.py  	input_file_path.txt	  output_directory_path  	config_file_path/config.ini 	 temporary_directory_path>`
 
 Please note that the directories paths must be in this format *'/home/path/output_folder'*, devoid of a final backslash, and that the files paths must contain the full file name, extension included if present.
 
