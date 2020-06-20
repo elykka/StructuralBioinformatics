@@ -18,7 +18,7 @@ from scipy.spatial.distance import cdist
 
 ############################# K-MEANS IMPLEMENTATION #######################################################
 
-# class used for clustering
+# Class used for clustering
 class affinity_propagation:
 
     def __init__(self, indexes, damping, max_iter, toll, random_state, number_residues, matrices, similarity_matrix):
@@ -31,12 +31,14 @@ class affinity_propagation:
         self.matrices = matrices
         self.similarity_matrix = similarity_matrix
 
-    # list of labels indicating which cluster the element in that position belongs to
-    def getElements(self, labels, size):
+    # Given a list of labels indicating which cluster the element in that position belongs to and the number of
+    # clusters, this function returns a dictionary that contains lists, where each list contains all the indexes
+    # of elements that belong to a certain cluster. The labelling of clusters starts from 0.
+    def getElements(self, labels, n_clusters):
         # empty dictionary
         clusters = {}
         # creating size lists to represent the clusters
-        for i in range(size):
+        for i in range(n_clusters):
             clusters[i] = []
         # for every element add the element to the cluster it belongs to
         for index in self.indexes:
@@ -44,10 +46,10 @@ class affinity_propagation:
         # return cluster list
         return clusters
 
+    # This function performs the clustering and returns a dictionary containing the clusters as lists and
+    # and a list containing the clusters centers.
+    # Cluster and centers do not contain the elements, but an index associated to them.
     def clusterize(self):
-        #TODO: remove if useless
-        pref = np.min(self.similarity_matrix)
-
         ap = AffinityPropagation(damping=self.damping, affinity='precomputed', max_iter=self.max_iter,
                                  random_state=self.random_state, convergence_iter=self.toll)
         # running clustering algorithm and getting a list indicating which cluster the element
@@ -57,7 +59,7 @@ class affinity_propagation:
         centers = ap.cluster_centers_indices_
         # number of clusters
         size = len(centers)
-        # repartition elements in the cluster
+        # repartition elements in the clusters
         clusters = self.getElements(labels, size)
 
         return clusters, centers
@@ -68,7 +70,7 @@ class affinity_propagation:
 def main():
     ############################# HELPER FUNCTIONS  ###########################################################
 
-    # function for parsing the edges_paths in the input file, path is the path to the input file
+    # Function for parsing the file edges paths written in the input file, path is the path to the input file.
     def parseInputFile(path):
         list = []
         names = []
@@ -112,8 +114,9 @@ def main():
                        )
         plt.savefig(os.path.join(output_path, protein_name + '_dendrogram.png'))
 
-    # given two indexes we get the corresponding csv file, we compare them and save in a list where
-    # they differ
+    # Given two indexes we get the corresponding csv files, compare them and save in a list all the contacts for which
+    # they differ from one another.
+    # The csv files are temporary files and represent the contact maps as matrices.
     def get_differences(indx_1, indx_2, list_paths, number_residues):
         snap_1 = pd.read_csv(os.path.join(list_paths[indx_1]))
         snap_1 = np.array(snap_1)
@@ -129,19 +132,24 @@ def main():
                     list.append((residues[i][0], residues[j][0]))
         return list
 
-    # given the indexes of the clusters centers, we confront them to see in which residues
-    # they differ
+    # Given the indexes of all the clusters centers, we confront them to see in which contacts
+    # they differ.
+    # This function returns a dictionary of lists that has as key a tuple containing the indexes of two of the centers
+    # confronted and as a value a list containing all the residues for which they differ.
     def confront_clusters(centers, list_paths, number_residues):
         elements = len(centers)
         differences = {}
+
+        # comparing all elements avoiding useless and repeated confrontations
         for el_1 in range(0, elements - 1):
-            for el_2 in range(1, elements):
-                if el_1 != el_2:
+            for el_2 in range(el_1 + 1, elements):
+                # adding the differences between centers el_1 and el_2 to the dictionary
                     differences[(el_1, el_2)] = get_differences(el_1, el_2, list_paths, number_residues)
         return differences
 
     ############################# ARGUMENT PARSER ############################################################
 
+    # setting up parser
     parser = argparse.ArgumentParser(description='Arguments for clustering contact maps.')
     parser.add_argument('input_file', metavar='contact_maps_file', type=str,
                         help='the file which contains the paths to RING contact map files (edge files), one '
@@ -281,6 +289,10 @@ def main():
 
     try:
         damping = float(damping)
+        if damping < 0.5 or damping > 1:
+            logging.error("In config file damping value is not correct, it must be between 0.5 and 1, please check",
+                          ValueError.args, 'damping', damping)
+            sys.exit(1)
     except ValueError:
         logging.error("In config file damping value is not convertible to float, please check",
                       ValueError.args, 'damping', damping)
@@ -310,6 +322,7 @@ def main():
     ############################# READ INPUT ###############################################################
 
     print('reading contact maps...')
+
     # the protein name, all files names and all files paths contained in input_file are returned
     # not ordered
     try:
@@ -318,30 +331,48 @@ def main():
         logging.error("Couldn't parse input_file, please check", ValueError.args)
         sys.exit(1)
 
-    # the total number of edges file
+    # the total number of edges files
     number_files = len(list_names)
 
-    # get a list of dictionaries that contain the contats for all files
+    # get a list of dictionaries that contain the contacts for all files
     # each cell contains a dictionary that contains all residues contacts in a file
-    list_contacts = list_contacts_per_snapshot(contact_threshold, energy_threshold, list_paths)
+    try:
+        list_contacts = list_contacts_per_snapshot(contact_threshold, energy_threshold, list_paths)
+    except ValueError:
+        logging.error("An error occurred while parsing contacts in edges files, please check", ValueError.args)
+        sys.exit(1)
 
     # get a list that contains all residues contained in a file
     # the list is ordered
-    listRes = list_residues(number_files, list_contacts)
+    try:
+        listRes = list_residues(number_files, list_contacts)
+    except ValueError:
+        logging.error("An error occurred while parsing residues in edges files, please check", ValueError.args)
+        sys.exit(1)
+
+    # total number of residues
     number_residues = len(listRes)
 
     # matrices rappresent a contact map
-    listMatrix = list_matrix(number_files, list_contacts, listRes)
+    try:
+        listMatrix = list_matrix(number_files, list_contacts, listRes)
+    except ValueError:
+        logging.error("An error occurred while transforming edges files in matrices, please check", ValueError.args)
+        sys.exit(1)
 
-    # construisco i dataframe e li salvo in una cartella
-    for i in range(0, number_files):
-        ((pd.DataFrame(listMatrix[i], columns=listRes, index=listRes)).fillna(0)) \
-            .to_csv((os.path.join(args.temporary_path, list_names[i] + '.csv')), index=listRes, header=True)
-
+    # creating dataframes for each of the matrices representing the snapshots and saving them in the temporary folder
+    try:
+        for i in range(0, number_files):
+            ((pd.DataFrame(listMatrix[i], columns=listRes, index=listRes)).fillna(0)) \
+                .to_csv((os.path.join(args.temporary_path, list_names[i] + '.csv')), index=listRes, header=True)
+    except ValueError:
+        logging.error("An error occurred while saving contact maps as csv files, please check", ValueError.args)
+        sys.exit(1)
     ############################# DISTANCE MATRIX ################################################
 
     print('making distance matrix...')
-    # ordered crescently by snapshot number
+
+    # sorting snapshots names by ascending order
     list_names.sort(key=lambda f: int(re.sub('\D', '', f)))
     listPaths = [os.path.join(args.temporary_path, list_names[i] + '.csv') for i in range(number_files)]
 
@@ -354,7 +385,7 @@ def main():
     # NXN matrix with all zeros
     distance_matrix = np.zeros((number_files, number_files), dtype=float)
 
-    # insert distances into each element of the distance_matrix, we need a symmetric matrix
+    # insert distances into each element of the distance_matrix, we need a symmetric matrix for the clustering
     for i in range(0, len(listPaths)):
         f_i = matrices[i].reshape(1, -1)
         for j in range(0, len(listPaths)):
@@ -371,7 +402,8 @@ def main():
     # export DataFrame into file csv
     distance_df.to_csv(os.path.join(args.output_path, protein_name + '_distance_matrix.csv'))
 
-    # making similarity matrix from distance matrix. The similarity matrix is also called affinity matrix
+    # making a similarity matrix from distance matrix. The similarity matrix is also called affinity matrix
+    # this is a technique used for transforming euclidean distances in a similarity matrix.
     affinity_matrix = distance_matrix * -1
 
     # indexes of snapshots (0 -> first snapshot, 1-> second snapshot, ...)
@@ -383,64 +415,74 @@ def main():
     print('making dendrogram...')
 
     # call function to create dendrogram
-    make_dendrogram(squareform(distance_matrix), indexes, args.output_path, method, optimal_ordering, orientation,
-                    distance_sort,
-                    show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name, font_size)
+    try:
+        make_dendrogram(squareform(distance_matrix), indexes, args.output_path, method, optimal_ordering, orientation,
+                        distance_sort,
+                        show_leaf_counts, truncation, truncate_mode, color_threshold, protein_name, font_size)
+    except ValueError:
+        logging.error("An error occurred while making the dendrogram, please check", ValueError.args)
+        sys.exit(1)
 
     ############################# CLUSTERING ############################################################
 
     # message to user
     print('clustering...')
 
-    # creating instance of clustering class
-    clustering = affinity_propagation(indexes, damping, max_iter, toll, random_state, number_residues,
-                                      matrices, affinity_matrix)
+    try:
+        # creating instance of clustering class
+        clustering = affinity_propagation(indexes, damping, max_iter, toll, random_state, number_residues,
+                                          matrices, affinity_matrix)
 
-    # running clustering algorithm and getting results
-    final_clusters, final_centers = clustering.clusterize()
+        # running clustering algorithm and getting results
+        final_clusters, final_centers = clustering.clusterize()
+    except ValueError:
+        logging.error("An error occurred while clustering with Affinity Propagation, please check", ValueError.args)
+        sys.exit(1)
 
     ############################# PROCESSING RESULTS ############################################################
 
     print('working on outputs...')
 
-    # # extract samples from the clusters
-    # for index in final_clusters:
-    #     sample = final_centers[index]
-    #     shutil.copy(list_paths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
-    #                                                 .format(index) + 'extract_'+list_names[sample]))
+    # show an example for each cluster. In this case, given the nature of Affinity Propagation, the examples will be
+    # the clusters centers.
+    for index in final_clusters:
+        sample = final_centers[index]
+        shutil.copy(list_paths[sample], os.path.join(args.output_path, protein_name + '_Cluster_{}_'
+                                                    .format(index) + 'extract_'+list_names[sample]))
 
-    # output file with clustering results
+    # create output file with the clustering results
     file = open(os.path.join(args.output_path, protein_name + '_cluster_results.txt'), 'w+')
     file.write('CLUSTERING RESULTS \n')
-    # dictionary indices
+    # dictionary indices representing clusters
     for index in final_clusters:
         file.write('CLUSTER {}:\n'.format(index))
         # elements in dictionary
         for cluster in final_clusters[index]:
+            # write element and distance from center
             file.write('Element: ' + str(cluster) + ', distance from center: ' +
-                       str(distance_matrix[cluster][final_centers[index]]) + '\n')
+                        str(distance_matrix[cluster][final_centers[index]]) + '\n')
     file.close()
 
     # output file with clusters differences
     file = open(os.path.join(args.output_path, protein_name + '_cluster_differences.txt'), 'w+')
     file.write('CLUSTERS DIFFERENCES \n')
     differences = confront_clusters(final_centers, listPaths, number_residues)
-    # dictionary indices
+    # dictionary indices representing the centers confronted
     for index in differences:
         file.write('CLUSTER {} - CLUSTER {}:\n'.format(index[0], index[1]))
-        # elements in dictionary
-        for elements in differences[index]:
-            file.write(str(elements) + '\n')
+        # for all contacts in dictionary
+        for contacts in differences[index]:
+            file.write(str(contacts) + '\n')
     file.close()
 
-    # legend for indexes to snapshots
+    # output file with legend for relation between indexes and snapshots
     file = open(os.path.join(args.output_path, protein_name + '_legend.txt'), 'w+')
     file.write('LEGEND: \n')
     for index in indexes:
-        file.write('Snapshot {} -> index {}:\n'.format(list_names[index], index))
+        file.write('Snapshot {} -> index {}\n'.format(list_names[index], index))
     file.close()
 
-    # delete temporary folder and all it's content
+    # delete temporary folder and all of it's content
     shutil.rmtree(args.temporary_path)
 
     # terminate program

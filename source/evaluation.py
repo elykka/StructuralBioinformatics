@@ -35,7 +35,7 @@ def getElements(labels, size, indexes):
     return elements
 
 # path were to save outputs
-output_path = '/home/elykka/Documents/CMC/output'
+output_path = '/home/elykka/Documents/CMC/RMSD'
 # path to pdb files
 input_path = '/home/elykka/Documents/CMC/data/vhl/pdb'
 
@@ -44,46 +44,30 @@ list_names.sort(key=lambda f: int(re.sub('\D', '', f)))
 print(list_names)
  # the total number of edges file
 number_files = len(list_names)
-protein_name = input_path.split('/')[-3]
+protein_name = input_path.split('/')[-2]
 
 # NXN matrix with all zeros
 distance_matrix = np.zeros((number_files, number_files), dtype=float)
 
+#
+# for i in range(1, number_files):
+#     for j in range(0, i):
+#         alignment = tmscoring.TMscoring(list_names[i], list_names[j])
+#         alignment.optimise()
+#         distance_matrix[i, j] = alignment.rmsd(**alignment.get_current_values())
+#         distance_matrix[j, i] = distance_matrix[i, j]
+#
+# # create DataFrame
+# distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
+# # export DataFrame into file csv
+# distance_df.to_csv(os.path.join(output_path, protein_name + '_RMSD_distance_matrix.csv'))
 
-for i in range(1, number_files):
-    for j in range(0, i):
-        alignment = tmscoring.TMscoring(list_names[i], list_names[j])
-        alignment.optimise()
-        distance_matrix[i, j] = alignment.rmsd(**alignment.get_current_values())
-        distance_matrix[j, i] = distance_matrix[i, j]
-
-# create DataFrame
-distance_df = pd.DataFrame(distance_matrix, columns=list_names, index=list_names)
-# export DataFrame into file csv
-distance_df.to_csv(os.path.join(output_path, protein_name + '_RMSD_distance_matrix.csv'))
-
-# distance_matrix = pd.read_csv(os.path.join(output_path, protein_name + '_RMSD_distance_matrix.csv'), index_col=0)
-# distance_matrix = np.array(distance_matrix)
+distance_matrix = pd.read_csv(os.path.join(output_path, protein_name + '_RMSD_distance_matrix.csv'), index_col=0)
+distance_matrix = np.array(distance_matrix)
 
 affinity_matrix = distance_matrix * -1
 indexes = [i for i in range(number_files)]
-labels = [i+1 for i in range(number_files)]
 
-make_dendrogram(squareform(distance_matrix), labels, output_path, 'single', True, 'top',
+make_dendrogram(squareform(distance_matrix), indexes, output_path, 'single', True, 'top',
                 'descending', True, 50, 'none', 3.0, protein_name)
 
-
-ap = AffinityPropagation(damping=0.5, affinity='precomputed', random_state=1)
-labels = ap.fit_predict(affinity_matrix)
-centers = ap.cluster_centers_indices_
-size = len(centers)
-clusters = getElements(labels, size, indexes)
-
-# output file with clustering results
-file = open(os.path.join(output_path, protein_name + '_RMSD_cluster_results.txt'), 'w+')
-file.write('CLUSTERING RESULTS \n')
-for index in clusters:
-    file.write('CLUSTER {}:\n'.format(index))
-    for cluster in clusters[index]:
-        file.write('Element: ' + str(list_names[cluster] + '\n'))
-file.close()

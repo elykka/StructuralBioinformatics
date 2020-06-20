@@ -1,113 +1,157 @@
-def list_contacts_per_snapshot(contact_threshold,energy_treshold,listPaths):
-        listCon = []
-        numFiles = len(listPaths)
-        for i in range(0, numFiles):
-            contacts = {}
-            with open(listPaths[i]) as f:
-                next(f)
-                for line in f:
-                    node_1, edge, node_2, distance, _,energy, atom_1, atom_2 = line.split()[0:8]
-                    distance = float(distance)
-                    energy = float(energy)
-                    if (distance <= contact_threshold) & (energy > energy_treshold):
-                        edge_type, edge_loc = edge.split(":")
-                        contacts.setdefault((node_1,edge_type), [])
-                        contacts.setdefault((node_2,edge_type), [])
+# Given the energy threshold, the contact threshold and the list of all file edges, this function
+# returns the list of contacts that are to be considered for all snapshots.
+# The list returned is actually a list of dictionaries, where the key represents the residue, node_1, we found
+# involved in a contact and the value represents all the residues node_2 involved in a contact with node_1.
+def list_contacts_per_snapshot(contact_threshold, energy_threshold, listPaths):
 
-                        if (node_2,edge_type) not in contacts[(node_1,edge_type)]:
-                            contacts[(node_1,edge_type)].append((node_2, edge_type))
-
-                        if (node_1, edge_type) not in contacts[(node_2, edge_type)]:
-                            contacts[(node_2,edge_type)].append((node_1, edge_type))
-
-                listCon.append(contacts)
-        return listCon
-
-def list_residues(numFiles,listDizCont):
-    res = []  # contiene tutti i residui di tutti i filenella lista
+    listCon = []
+    # total number of file edges
+    numFiles = len(listPaths)
+    # for every edges file
     for i in range(0, numFiles):
+        # dictionary containing all contacts that we will consider
+        contacts = {}
+        # open files for parsing
+        with open(listPaths[i]) as f:
+            next(f)
+            # parse every line and get the residues distance and energy
+            # every line is a contact
+            for line in f:
+                node_1, edge, node_2, distance, _, energy, atom_1, atom_2 = line.split()[0:8]
+                distance = float(distance)
+                energy = float(energy)
+                # check if contact energy and distance values are inside the thresholds
+                if (distance <= contact_threshold) & (energy > energy_threshold):
+                    edge_type, edge_loc = edge.split(":")
+                    contacts.setdefault((node_1, edge_type), [])
+                    contacts.setdefault((node_2, edge_type), [])
+
+                    # check if the contact has already been added to the dictionary
+                    if (node_2, edge_type) not in contacts[(node_1, edge_type)]:
+                        contacts[(node_1, edge_type)].append((node_2, edge_type))
+
+                    if (node_1, edge_type) not in contacts[(node_2, edge_type)]:
+                        contacts[(node_2, edge_type)].append((node_1, edge_type))
+            # add dictionary to the list of contacts
+            listCon.append(contacts)
+    return listCon
+
+# given the number of files and the list of contacts, this function returns a list with all the different
+# residues contained in the files
+def list_residues(numFiles, listDizCont):
+    res = []
+    # for all files
+    for i in range(0, numFiles):
+        # for every residue in the first position of the contact
         for node in listDizCont[i].keys():
-            numNode2= len(listDizCont[i][node])
-            for j in range(0,numNode2) :
+            numNode2 = len(listDizCont[i][node])
+            # for every residue in the second position of the contact that we found
+            for j in range(0, numNode2):
+                # if the contact is not already present in the list, add it
                 if listDizCont[i][node][j] not in res:
                     res.append(listDizCont[i][node][j])
-    res = list(dict.fromkeys(res))  # elimino i duplicati
-    res.sort(key=lambda x: int(x[0].split(':')[1]))  # ordine numerico
-    res.sort(key=lambda x: x[0].split(':')[0])  # ordine alfabetico
+    # removing duplicates
+    res = list(dict.fromkeys(res))
+    # numerical order
+    res.sort(key=lambda x: int(x[0].split(':')[1]))
+    # alphabetic order
+    res.sort(key=lambda x: x[0].split(':')[0])
     return res
 
-def costants(node1, listDizContacs):
-    hid, vdw ,pip ,pic ,ioc ,ss ,iac = 0,0,0,0,0,0,0
-    for i in listDizContacs[7]:
-        if (i[1] == 'HBOND'):
+# given a list of contacts we count how many of each type are present and we assign some penalties, called costs,
+# to make sure that the most common contacts don't overshadow the rest
+def costants(list_diz_contacts):
+    hid, vdw, pip, pic, ioc, ss, iac = 0, 0, 0, 0, 0, 0, 0
+    # counting for each type of contact how many of are present
+    for i in list_diz_contacts[7]:
+        if i[1] == 'HBOND':
             hid = hid + 1
-        if (i[1] == 'VDW'):
+        if i[1] == 'VDW':
             vdw = vdw + 1
-        if (i[1] == 'PICATION'):
+        if i[1] == 'PICATION':
             pic = pic + 1
-        if (i[1] == 'PIPISTACK'):
+        if i[1] == 'PIPISTACK':
             pip = pip + 1
-        if (i[1] == 'IONIC'):
+        if i[1] == 'IONIC':
             ioc = ioc + 1
-        if (i[1] == 'SSBOND'):
+        if i[1] == 'SSBOND':
             ss = ss + 1
-        if (i[1] == 'IAC'):
+        if i[1] == 'IAC':
             iac = iac + 1
-    tot = hid + ss + ioc + pip +pic
-    hid=1-(hid/tot)
-    ss = 1-(ss/tot)
-    ioc =1-(ioc/tot)
-    pip =1-(pip/tot)
-    pic =1-(pic/tot)
+    # total number of contacts
+    tot = hid + ss + ioc + pip + pic
+    # calculating penalties
+    hid = 1 - (hid / tot)
+    ss = 1 - (ss / tot)
+    ioc = 1 - (ioc / tot)
+    pip = 1 - (pip / tot)
+    pic = 1 - (pic / tot)
 
-    return hid,ss,ioc,pip,pic
+    return hid, ss, ioc, pip, pic
 
-
-def build_matrix(i, listDizCont, listRes):#Per ogni file costruisco una matrice
-    matrix= {}
-    for node1 in listDizCont[i].keys():   # per tutti i residui di un file, metto 1 per i contatti e metto 0 per gli altr
-        costH, costS,costI,costPIP,costPIC = costants(node1, listDizCont)
+# Given the index indicating a contact map, the list of contacts and the list of residues, this function
+# builds a matrix with a value in the cell[i][j] if there was a connection between residues i and j, otherwise
+# the cell will contain 0.
+def build_matrix(index, list_contacts, list_res):
+    matrix = {}
+    # for every contact
+    for node1 in list_contacts[index].keys():
+        # we calculate the weights based on the number and type of contacts
+        costH, costS, costI, costPIP, costPIC = costants(list_contacts)
         matrix.setdefault(node1, [])
-        for re in listRes:
-            #guardo se è presente
+        # for every residue, we look if a contact present in the file
+        for residue in list_res:
             find = False
-            numCon = len(listDizCont[i][node1])
-            for node2 in range(0, numCon):
-                if re == listDizCont[i][node1][node2]:
+            num_contacts = len(list_contacts[index][node1])
+            # for every other contact, we search if there is a connection
+            for node2 in range(0, num_contacts):
+                # if we find a match, the residue has a contact
+                if residue == list_contacts[index][node1][node2]:
                     find = True
-                    if listDizCont[i][node1][node2][1] == "HBOND":
-                        val = 17.0000*costH
+                    # we assign a value based the type of bond using weights and a penalty
+                    # and we put the value in the corresponding matrix cell
+                    if list_contacts[index][node1][node2][1] == "HBOND":
+                        val = 17.0000 * costH
                         matrix[node1].append(val)
-                    if listDizCont[i][node1][node2][1] == "VDW":
+
+                    if list_contacts[index][node1][node2][1] == "VDW":
                         val = 6.000
                         matrix[node1].append(val)
-                    if listDizCont[i][node1][node2][1] == "SSBOND":
-                        #* 35.5
-                        val = 167.000*costS
+
+                    if list_contacts[index][node1][node2][1] == "SSBOND":
+                        val = 167.000 * costS
                         matrix[node1].append(val)
-                    if listDizCont[i][node1][node2][1] == "IONIC":
-                        #* 12.69
-                        val = 20.000*costI
+
+                    if list_contacts[index][node1][node2][1] == "IONIC":
+                        val = 20.000 * costI
                         matrix[node1].append(val)
-                    if listDizCont[i][node1][node2][1] == "PIPISTACK":
-                        #* 88.75
-                        val = 9.400*costPIP
+
+                    if list_contacts[index][node1][node2][1] == "PIPISTACK":
+                        val = 9.400 * costPIP
                         matrix[node1].append(val)
-                    if listDizCont[i][node1][node2][1] == "PICATION":
-                        #* 88.75
-                        val = 9.600*costPIC
+
+                    if list_contacts[index][node1][node2][1] == "PICATION":
+                        val = 9.600 * costPIC
                         matrix[node1].append(val)
-                    if listDizCont[i][node1][node2][1] == "IAC":
+
+                    if list_contacts[index][node1][node2][1] == "IAC":
                         val = 0
                         matrix[node1].append(val)
-            if find == False:
+            # if the contact combination was not present, we put 0  in the corresponding matrix cell
+            # to signify that the contact was not present
+            if not find:
                 matrix[node1].append(0)
     return matrix
 
 
-def list_matrix(numFiles, listDizCont, listRes):
-    listMatrix= []
-    for i in range(0, numFiles):  # per ogni file,
-        matrix = build_matrix(i, listDizCont, listRes)
-        listMatrix.append(matrix)
-    return listMatrix
+# Given the total number of files, the contacts list and the list of residues considered, this
+# function returns the list containing the matrices representing the contact maps.
+def list_matrix(num_files, list_contacts, list_res):
+    mat_list = []
+    # for every file
+    for i in range(0, num_files):
+        # make matrix
+        matrix = build_matrix(i, list_contacts, list_res)
+        # add matrix to list
+        mat_list.append(matrix)
+    return mat_list
