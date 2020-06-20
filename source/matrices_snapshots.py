@@ -58,9 +58,9 @@ def list_residues(numFiles, listDizCont):
     res.sort(key=lambda x: x[0].split(':')[0])
     return res
 
-# given a list of contacts we count how many of each type are present and we assign some penalties, called costs,
+# given a list of contacts we count how many of each type are present and we assign some weights,
 # to make sure that the most common contacts don't overshadow the rest
-def costants(list_diz_contacts):
+def weights(list_diz_contacts):
     hid, vdw, pip, pic, ioc, ss, iac = 0, 0, 0, 0, 0, 0, 0
     # counting for each type of contact how many of are present
     for i in list_diz_contacts[7]:
@@ -81,13 +81,13 @@ def costants(list_diz_contacts):
     # total number of contacts
     tot = hid + ss + ioc + pip + pic
     # calculating penalties
-    hid = 1 - (hid / tot)
-    ss = 1 - (ss / tot)
-    ioc = 1 - (ioc / tot)
-    pip = 1 - (pip / tot)
-    pic = 1 - (pic / tot)
+    w_hid = 1 - (hid / tot)
+    w_ss = 1 - (ss / tot)
+    w_ioc = 1 - (ioc / tot)
+    w_pip = 1 - (pip / tot)
+    w_pic = 1 - (pic / tot)
 
-    return hid, ss, ioc, pip, pic
+    return w_hid, w_ss, w_ioc, w_pip, w_pic
 
 # Given the index indicating a contact map, the list of contacts and the list of residues, this function
 # builds a matrix with a value in the cell[i][j] if there was a connection between residues i and j, otherwise
@@ -97,7 +97,7 @@ def build_matrix(index, list_contacts, list_res):
     # for every contact
     for node1 in list_contacts[index].keys():
         # we calculate the weights based on the number and type of contacts
-        costH, costS, costI, costPIP, costPIC = costants(list_contacts)
+        wH, wS, wI, wPIP, wPIC = weights(list_contacts)
         matrix.setdefault(node1, [])
         # for every residue, we look if a contact present in the file
         for residue in list_res:
@@ -111,7 +111,7 @@ def build_matrix(index, list_contacts, list_res):
                     # we assign a value based the type of bond using weights and a penalty
                     # and we put the value in the corresponding matrix cell
                     if list_contacts[index][node1][node2][1] == "HBOND":
-                        val = 17.0000 * costH
+                        val = 17.0000 * wH
                         matrix[node1].append(val)
 
                     if list_contacts[index][node1][node2][1] == "VDW":
@@ -119,19 +119,19 @@ def build_matrix(index, list_contacts, list_res):
                         matrix[node1].append(val)
 
                     if list_contacts[index][node1][node2][1] == "SSBOND":
-                        val = 167.000 * costS
+                        val = 167.000 * wS
                         matrix[node1].append(val)
 
                     if list_contacts[index][node1][node2][1] == "IONIC":
-                        val = 20.000 * costI
+                        val = 20.000 * wI
                         matrix[node1].append(val)
 
                     if list_contacts[index][node1][node2][1] == "PIPISTACK":
-                        val = 9.400 * costPIP
+                        val = 9.400 * wPIP
                         matrix[node1].append(val)
 
                     if list_contacts[index][node1][node2][1] == "PICATION":
-                        val = 9.600 * costPIC
+                        val = 9.600 * wPIC
                         matrix[node1].append(val)
 
                     if list_contacts[index][node1][node2][1] == "IAC":
