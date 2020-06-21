@@ -78,9 +78,9 @@ def weights(list_diz_contacts):
             ss = ss + 1
         if i[1] == 'IAC':
             iac = iac + 1
-    # total number of weights
+    # total number of contacts
     tot = hid + ss + ioc + pip + pic
-    # calculating penalties
+    # calculating weights
     w_hid = 1 - (hid / tot)
     w_ss = 1 - (ss / tot)
     w_ioc = 1 - (ioc / tot)
