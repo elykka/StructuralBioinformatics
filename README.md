@@ -60,10 +60,17 @@ The parameters contained are the following:
 
 **CONTACT MAPS FILTERING CONFIGURATIONS**
 
-* contact_treshold: residues that have a bond with a distance above the threshold are not considered.
+* contact_treshold: residues that have a bond with a distance above the threshold are not considered, the distance considered is the one reported in the edges files.
   * acceptable values are floats (with a .).
 * energy_treshold: residues with an energy bond below the threshold are not considered.
-  * acceptable values are floats (with a .).
+  * acceptable values are floats (with a .), the energy bonds are all floats ranging from 5 to 167 and change depending on the type of bond:
+    * Hidrogen bonds (HBOND) have energy 17.000;
+    * Van der Waals interactions (VDW) have energy 6.000;
+    * Disulfide bridges (SBOND) have energy 167.000;
+    * Salt bridges (IONIC) have energy 20.000;
+    * Pipistacking (PIPISTACK) have energy 9.400;
+    * Pication (PICATION) have energy 9.600;
+    * Inter atomin contact (IAC) bonds (meaning that two residues are close but we were not able to identify the type of bond) have energy 5.000.
 
 **DENDROGRAM CONFIGURATIONS**
 
