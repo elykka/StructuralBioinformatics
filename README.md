@@ -70,7 +70,7 @@ The parameters contained are the following:
     * Salt bridges (IONIC) have energy 20.000;
     * Pipistacking (PIPISTACK) have energy 9.400;
     * Pication (PICATION) have energy 9.600;
-    * Inter atomin contact (IAC) bonds (meaning that two residues are close but we were not able to identify the type of bond) have energy 5.000.
+    * Inter atomin contact (IAC) bonds (meaning that two residues are close but we were not able to identify the type of bond) have energy 0.
 
 **DENDROGRAM CONFIGURATIONS**
 
