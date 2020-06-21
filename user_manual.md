@@ -26,7 +26,7 @@ where:
 * *config_file_path/config.ini* is the path to the file ini that contains all of the parameters that are to be used in the program and is provided by the team.
 * *temporary_directory_path* is the path to the folder where the temporary files are to be saved.
 
-Please note that the directories paths must be in this format *'/home/path/output_folder'*, devoid of a final backslash, and that the files paths must contain the full file name, extension included if present.
+Please note that the directories paths must be in this format */home/path/output_folder*, devoid of a final backslash, and that the files paths must contain the full file name, extension included if present.
 
 **If the output or the temporary directory don't already exist, they will be created, however the rest of the path leading up to the directory must exist.**
 
@@ -47,7 +47,7 @@ After the program has ended, in the output directory the user can find:
   * which elements belong to which cluster;
   * their distance from the cluster center;
   * NOTE: the elements are represented as indexes, see legend to refer back to the snapshot associated.
-* *__protein-name__\_cluster_differences*, a file containing the differences from cluster to cluster, in terms of residues and contacts. All of the contacts that were considered during the clustering are shown. 
+* *__protein-name__\_cluster_differences.txt*, a file containing the differences from cluster to cluster, in terms of residues and contacts. All of the contacts that were considered during the clustering are shown. 
   * the differences were found by confronting the clusters centers since Affinity Propagation tries to identify the center of the cluster as the element that is more suited to represent all other elements in the cluster.
   * the files contains an indication of which clusters were confronted, "CLUSTER i - CLUSTER j", followed by the list of contacts for which the two clusters differ.
   * the file does not contain repetitions, if the user wants to find the differences between cluster i and j and i < j, the file will contain the comparison under "CLUSTER i - CLUSTER j". 
