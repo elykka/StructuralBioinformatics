@@ -2,21 +2,27 @@
 
 ### PURPOSE
 
-This program wants to test a different approach to try and provide a clusterization of the structures obtained in Molecular Dynamics trajectories, this is done using the structure's contact map, one for each of them.
+snapshotClusterer wants to test a different approach to try and provide a clusterization of the structures obtained in Molecular Dynamics trajectories, this is done using the structure's contact map, one for each of them.
 
 The reason behind the use of contact maps is because they provide more informations about the type of contacts that each residue in the structure has.
 
 This program uses the contact maps returned by RING, a Residue Interaction Network, that saves them in files called edges.
 This maps will also be referred as snapshots in this document.
 
-**Please note that this program is just an experimental test, assigned during the course of Structural Bioinformatics offered by the University of Padova.
+**Please note that snapshotClusterer is just an experimental test, assigned during the course of Structural Bioinformatics offered by the University of Padova.
 The scope of this project was to choose, motivate, test and evaluate a different approach for the clustering of structures and is not to be viewed as a finished and valid product.**
  
 ### USE
 
 To launch the program, the following instruction must be used in the terminal:
 
-`<python3  	nome_file.py  	input_file_path.txt	  output_directory_path  	config_file_path/config.ini 	 temporary_directory_path>`
+`python3  	snapshotClusterer.py  	input_file_path.txt	  output_directory_path  	config_file_path/config.ini 	 temporary_directory_path`
+
+where:
+* *input_file_path.txt* is the path to the file txt that contains all of the paths to the edges files of a protein that are to be clustered.
+* *output_directory_path* is the path to the folder where the results are to be saved.
+* *config_file_path/config.ini* is the path to the file ini that contains all of the parameters that are to be used in the program and is provided by the team.
+* *temporary_directory_path* is the path to the folder where the temporary files are to be saved.
 
 Please note that the directories paths must be in this format *'/home/path/output_folder'*, devoid of a final backslash, and that the files paths must contain the full file name, extension included if present.
 
@@ -30,31 +36,27 @@ The metric used in the program was custom made by the team, whereas the clusteri
 **More informations about the metric used and how Affinity propagation works can be found in the report**
 
 After the program has ended, in the output directory the user can find:
-* a file containing a legend to show the relation between indexes and snapshots, since in the dendrogram and in some of the output files the snapshots were represented by indexes.
-  * the file name is going to be *protein-name_legend*.
-* a file containing the snapshots dendrogram calculated using the metric defined by the team.
-  * the file name is going to be *protein-name_dendrogram*.
+* *__protein-name__\_legend.txt*, a file containing a legend to show the relation between indexes and snapshots, since in the dendrogram and in some of the output files the snapshots were represented by indexes.
+* *__protein-name__\_dendrogram.png*, a file containing the snapshots dendrogram calculated using the metric defined by the team.
   * NOTE: the elements are represented as indexes, see legend to refer back to the snapshot associated.
-* a file containing the distance matrix between all snapshots, calculated by using the metric defined by the team.
-  * the file name is going to be *protein-name_distance_matrix*.
-* a file containing the results of the optimal clusterization, indicating:
+* *__protein-name__\_distance_matrix.csv*, a file containing the distance matrix between all snapshots, calculated by using the metric defined by the team.
+* *__protein-name__\_cluster_results.txt*, a file containing the results of the optimal clusterization, indicating:
   * the clusters;
-  * which elements belong to which clusters;
+  * which elements belong to which cluster;
   * their distance from the cluster center;
-  * the file name is going to be *protein-name_cluster_results*.
   * NOTE: the elements are represented as indexes, see legend to refer back to the snapshot associated.
-* a file containing the differences from cluster to cluster, in terms of residues and contacts all the contacts that were considered in the program are shown. 
+* *__protein-name__\_cluster_differences*, a file containing the differences from cluster to cluster, in terms of residues and contacts. All of the contacts that were considered during the clustering are shown. 
   * the differences were found by confronting the clusters centers since Affinity Propagation tries to identify the center of the cluster as the element that is more suited to represent all other elements in the cluster.
+  * the files contains an indication of which clusters were confronted, "CLUSTER i - CLUSTER j", followed by the list of contacts for which the two clusters differ.
   * the file does not contain repetitions, if the user wants to find the differences between cluster i and j and i < j, the file will contain the comparison under "CLUSTER i - CLUSTER j". 
-  * the file name is going to be *protein-name_cluster_differences*.
 * a series of edges files used as an example, one for each cluster in the optimal clusterization, the examples chosen were the centers of the clusterization.
-  * the file name are going to be *protein-name_Cluster_**x**\_extract_**edges-file-name***, where **x** is the number of cluster and **edges-file-name** is the name of the edges file used as an example.
+  * the file name are going to be *__protein-name__\_Cluster_**x**\_extract_**edges-file-name***, where **x** is the number of cluster and **edges-file-name** is the name of the edges file used as an example.
 
 **protein-name is obtained from the paths of edges files, usually the path is .../protein-name/edges/edges-file-name should that folder name be different then the resulting output files will have that name**
 
 ### CONFIGURATION FILE
 The program uses a configuration file to give the user the possibility of changing the algorithm parameters.
-The parameters contained are:
+The parameters contained are the following:
 
 **CONTACT MAPS FILTERING CONFIGURATIONS**
 
@@ -72,9 +74,10 @@ The parameters contained are:
 * truncation: value for truncate mode.
   * acceptable values: int.
 * truncate_mode: condenses the dendrogram if it's difficult to read.
-  * acceptable values: 'none', 'lastp', 'level'.
-  * these values mean: no truncation; the last 'truncation' non-singleton clusters formed in the linkage are the only.
- non-leaf nodes in the linkage; no more than 'truncation' levels of the dendrogram are displayed. A “level” includes all nodes with 'truncation' merges from the last merge.
+  * acceptable values: 
+    * 'none', meaning no truncation;
+    * 'lastp', meaning that the last 'truncation' non-singleton clusters formed in the linkage are going to be the only non-leaf nodes in the linkage;
+    * 'level', meaning that no more than 'truncation' levels of the dendrogram are displayed. A “level” includes all nodes with 'truncation' merges from the last merge.
 * color_threshold: colors all the descendent links below a cluster node the same color if is the first node below the threshold.   
   * acceptable values: float (with .).
 * orientation: the direction in which to plot the dendrogram.
