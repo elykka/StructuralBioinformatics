@@ -1,6 +1,6 @@
 # Given the energy threshold, the contact threshold and the list of all file edges, this function
 # returns the list of contacts that are to be considered for all snapshots.
-# The list returned is actually a list of dictionaries, where the key represents the residue, node_1, we found
+# The list returned is actually a list of dictionaries, where the key represents the residue, node_1,that we found
 # involved in a contact and the value represents all the residues node_2 involved in a contact with node_1.
 def list_contacts_per_snapshot(contact_threshold, energy_threshold, listPaths):
 
@@ -78,7 +78,7 @@ def weights(list_diz_contacts):
             ss = ss + 1
         if i[1] == 'IAC':
             iac = iac + 1
-    # total number of contacts
+    # total number of weights
     tot = hid + ss + ioc + pip + pic
     # calculating penalties
     w_hid = 1 - (hid / tot)
@@ -99,16 +99,16 @@ def build_matrix(index, list_contacts, list_res):
         # we calculate the weights based on the number and type of contacts
         wH, wS, wI, wPIP, wPIC = weights(list_contacts)
         matrix.setdefault(node1, [])
-        # for every residue, we look if a contact present in the file
+        # for every residue, we look if it is present in the list of contacts of the node1
         for residue in list_res:
             find = False
             num_contacts = len(list_contacts[index][node1])
-            # for every other contact, we search if there is a connection
+            # for every contact of node1, we search if the residue is equal to node2
             for node2 in range(0, num_contacts):
-                # if we find a match, the residue has a contact
+                # if we find a match, the residue is in the list of contacts of node1
                 if residue == list_contacts[index][node1][node2]:
                     find = True
-                    # we assign a value based the type of bond using weights and a penalty
+                    # we assign a value based on the energy bound and the weight
                     # and we put the value in the corresponding matrix cell
                     if list_contacts[index][node1][node2][1] == "HBOND":
                         val = 17.0000 * wH
