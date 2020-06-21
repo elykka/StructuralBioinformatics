@@ -13,7 +13,6 @@ import configparser
 from distutils.util import strtobool
 from scipy.spatial.distance import squareform
 from sklearn.cluster import AffinityPropagation
-from matrices_snapshots import list_contacts_per_snapshot, list_residues, list_matrix
 from scipy.spatial.distance import cdist
 
 
